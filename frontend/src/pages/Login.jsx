@@ -1,32 +1,39 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Leaf, ShoppingCart, BarChart } from 'lucide-react';
+import { Leaf, ShoppingCart, BarChart, Loader2 } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [role, setRole] = useState('user');
+  const [role, setRole] = useState('user'); 
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Enter your email or mobile phone number');
       return;
     }
-    // Simulate login
-    const success = login(email, password, role);
-    if (success) {
-      if (role === 'seller') {
+    
+    setIsLoading(true);
+    setError('');
+    
+    const res = await login(email, password, role);
+    
+    setIsLoading(false);
+    
+    if (res.success) {
+      if (res.role === 'seller') {
         navigate('/seller/dashboard');
       } else {
         navigate('/');
       }
     } else {
-      setError('Invalid credentials');
+      setError(res.message);
     }
   };
 
@@ -42,7 +49,6 @@ export default function Login() {
       <div className="w-[350px] mb-6">
         <h2 className="text-[13px] font-bold text-gray-700 mb-2">Choose Account Type</h2>
         <div className="grid grid-cols-2 gap-3">
-          {/* Customer Card */}
           <div 
             onClick={() => setRole('user')}
             className={`cursor-pointer rounded border p-3 flex flex-col items-center text-center transition-all ${role === 'user' ? 'border-[#e77600] bg-[#fffaf5] shadow-sm ring-1 ring-[#e77600]' : 'border-gray-300 hover:bg-gray-50'}`}
@@ -53,7 +59,6 @@ export default function Login() {
             <h3 className={`font-bold text-[13px] ${role === 'user' ? 'text-[#111]' : 'text-gray-600'}`}>Customer</h3>
           </div>
           
-          {/* Seller Card */}
           <div 
             onClick={() => setRole('seller')}
             className={`cursor-pointer rounded border p-3 flex flex-col items-center text-center transition-all relative ${role === 'seller' ? 'border-[#0066c0] bg-[#f0f8ff] shadow-sm ring-1 ring-[#0066c0]' : 'border-gray-300 hover:bg-gray-50'}`}
@@ -84,12 +89,13 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-[13px] font-bold text-[#111111] mb-1">Email or mobile phone number</label>
+            <label className="block text-[13px] font-bold text-[#111111] mb-1">Email</label>
             <input 
               type="email" 
               className="w-full border border-[#a6a6a6] rounded py-1 px-2 focus:ring-2 focus:ring-[#e77600] focus:border-[#e77600] outline-none shadow-inner"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isLoading}
             />
           </div>
           
@@ -103,14 +109,16 @@ export default function Login() {
               className="w-full border border-[#a6a6a6] rounded py-1 px-2 focus:ring-2 focus:ring-[#e77600] focus:border-[#e77600] outline-none shadow-inner"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
             />
           </div>
 
           <button 
             type="submit" 
-            className="w-full bg-[#f0c14b] border border-[#a88734] hover:bg-[#f4d078] rounded py-1 text-sm text-[#111] shadow-sm mb-4"
+            disabled={isLoading}
+            className={`w-full flex items-center justify-center border hover:bg-[#f4d078] rounded py-1 text-sm text-[#111] shadow-sm mb-4 ${isLoading ? 'bg-[#f4d078] border-[#a88734] opacity-70 cursor-not-allowed' : 'bg-[#f0c14b] border-[#a88734]'}`}
           >
-            Continue
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin text-[#111]" /> : 'Continue'}
           </button>
         </form>
 

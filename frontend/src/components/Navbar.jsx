@@ -4,15 +4,26 @@ import { useMode } from '../context/ModeContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getRelifeAlternative, getAmazonAlternative } from '../utils/productMatcher';
-import { amazonProducts, openBoxProducts, usedProducts } from '../data/mockData';
+import { searchProducts, getRecommendation, getRelifeProduct } from '../api/client';
 
 export default function Navbar() {
-  const { mode, toggleMode } = useMode();
+  const { mode, toggleMode, setMode } = useMode();
   const { cartCount } = useCart();
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Automatic Route-Based Sync
+  useEffect(() => {
+    const isRelifeRoute = location.pathname.startsWith('/relife');
+    const expectedMode = isRelifeRoute ? 'relife' : 'shopping';
+    
+    if (mode !== expectedMode) {
+      console.log('Current Route:', location.pathname);
+      console.log('Detected Mode:', expectedMode);
+      setMode(expectedMode);
+    }
+  }, [location.pathname, mode, setMode]);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -39,7 +50,7 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  // Debounced live search
   useEffect(() => {
     const handler = setTimeout(() => {
       if (!searchQuery.trim()) {
@@ -48,22 +59,18 @@ export default function Navbar() {
       }
       
       const query = searchQuery.toLowerCase().trim();
-      let inventory = mode === 'shopping' ? amazonProducts : [...openBoxProducts, ...usedProducts];
       
-      const results = inventory.filter(item => {
-        const textToSearch = [
-          item.name,
-          item.brand,
-          item.category,
-          item.description,
-          ...(item.features || [])
-        ].join(' ').toLowerCase();
+      searchProducts(query, mode)
+        .then(data => {
+          let results = mode === 'shopping' ? (data.amazon || []) : (data.relife || []);
+          setSearchResults(results.slice(0, 8)); // limit to 8 results
+          setHighlightedIndex(-1);
+        })
+        .catch(err => {
+           console.error("Live search failed", err);
+           setSearchResults([]);
+        });
         
-        return textToSearch.includes(query);
-      });
-      
-      setSearchResults(results.slice(0, 8)); // limit to 8 results
-      setHighlightedIndex(-1);
     }, 300);
 
     return () => clearTimeout(handler);
@@ -130,35 +137,38 @@ export default function Navbar() {
     }
   };
 
-  const handleModeSwitch = (targetMode) => {
+  const handleModeSwitch = async (targetMode) => {
     if (mode === targetMode) return;
 
     if (targetMode === 'relife') {
       if (location.pathname.startsWith('/product/')) {
         const id = location.pathname.split('/')[2];
-        const alternative = getRelifeAlternative(id);
-        if (alternative) {
-          navigate(`/relife/product/${alternative.id}`);
-        } else {
-          navigate('/relife');
-        }
+        try {
+          const alternative = await getRecommendation(id);
+          if (alternative && alternative.product) {
+            navigate(`/relife/product/${alternative.product._id || alternative.product.id}`, { state: { recommendedUnitId: alternative.unit.unitId } });
+          } else {
+            navigate('/relife');
+          }
+        } catch(e) { navigate('/relife'); }
       } else {
         navigate('/relife');
       }
     } else {
       if (location.pathname.startsWith('/relife/product/')) {
         const id = location.pathname.split('/')[3];
-        const alternative = getAmazonAlternative(id);
-        if (alternative) {
-          navigate(`/product/${alternative.id}`);
-        } else {
-          navigate('/');
-        }
+        try {
+           const rp = await getRelifeProduct(id);
+           if (rp && rp.originalId) {
+              navigate(`/product/${rp.originalId}`);
+           } else {
+              navigate('/');
+           }
+        } catch(e) { navigate('/'); }
       } else {
         navigate('/');
       }
     }
-    toggleMode();
   };
 
   return (
@@ -309,7 +319,7 @@ export default function Navbar() {
                   <div>
                     <p className="text-sm font-bold truncate w-40">{user.name}</p>
                     <p className="text-[11px] text-[#16a34a] font-bold flex items-center">
-                      <Leaf className="w-3 h-3 mr-1" /> {user.credits} Credits
+                      <Leaf className="w-3 h-3 mr-1" /> {user.greenCredits || 0} Credits
                     </p>
                   </div>
                 </div>
@@ -318,7 +328,7 @@ export default function Navbar() {
               <div className="grid grid-cols-1 gap-2 text-[13px]">
                 <h3 className="font-bold text-[#111111] mt-2 mb-1">Your Account</h3>
                 <Link to="/profile" className="hover:text-[#e77600] hover:underline cursor-pointer py-0.5">Your Profile</Link>
-                <Link to="/profile" className="hover:text-[#e77600] hover:underline cursor-pointer py-0.5">Your Orders</Link>
+                <Link to="/profile" state={{ tab: 'purchases' }} className="hover:text-[#e77600] hover:underline cursor-pointer py-0.5">Your Orders</Link>
                 <Link to="/profile" className="hover:text-[#e77600] hover:underline cursor-pointer py-0.5">My Listings</Link>
                 <Link to="/leaderboard" className="hover:text-[#e77600] hover:underline cursor-pointer py-0.5 flex items-center justify-between">
                   <span>Community Leaderboard</span>
@@ -342,10 +352,10 @@ export default function Navbar() {
         </div>
 
         {/* Returns & Orders */}
-        <div className="hidden lg:flex flex-col border border-transparent hover:border-white p-1 rounded-sm cursor-pointer">
+        <Link to="/profile" state={{ tab: 'purchases' }} className="hidden lg:flex flex-col border border-transparent hover:border-white p-1 rounded-sm cursor-pointer">
           <span className="text-[11px] leading-none">Returns</span>
           <span className="font-bold text-sm">& Orders</span>
-        </div>
+        </Link>
 
         {/* Cart */}
         <Link to="/cart" className="flex items-center border border-transparent hover:border-white p-1 rounded-sm cursor-pointer relative">

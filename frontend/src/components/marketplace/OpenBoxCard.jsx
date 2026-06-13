@@ -7,13 +7,14 @@ import ConditionScoreBadge from '../ui/ConditionScoreBadge';
 export default function OpenBoxCard({ product }) {
   const navigate = useNavigate();
   const { cartItems, addToCart } = useCart();
-
-  const isInCart = cartItems.some(item => item.id === product.id);
+  
+  const productId = product._id || product.id;
+  const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
 
   return (
     <div 
-      className="bg-white rounded-lg border border-[#D5D9D9] flex flex-col group cursor-pointer hover:shadow-xl transition-shadow relative overflow-hidden"
-      onClick={() => navigate(`/relife/product/${product.id}`)}
+      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col h-full"
+      onClick={() => navigate(`/relife/product/${productId}`)}
     >
       {/* Premium Amazon Certified Open Box Badge */}
       <div className="bg-[#111111] text-white flex items-center px-3 py-1.5 shadow-sm relative z-10 border-b-2 border-[#FF9900]">
@@ -48,7 +49,8 @@ export default function OpenBoxCard({ product }) {
         <div className="mt-4 flex items-baseline space-x-2">
           <div className="flex items-start">
             <span className="text-xs mt-1 text-[#CC0C39]">₹</span>
-            <span className="text-2xl font-bold text-[#CC0C39]">{product.relifePrice.split('.')[0]}</span>
+            <span className="text-2xl font-bold text-[#CC0C39]">{String(product.relifePrice).split('.')[0]}</span>
+            <span className="text-sm align-top mt-1">{String(product.relifePrice).split('.')[1] ? `.${String(product.relifePrice).split('.')[1]}` : ''}</span>
           </div>
           <span className="text-xs text-[#565959]">M.R.P: <span className="line-through">₹{product.originalPrice}</span></span>
         </div>

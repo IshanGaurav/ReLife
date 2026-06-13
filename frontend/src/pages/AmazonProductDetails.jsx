@@ -4,7 +4,7 @@ import { Star, MapPin, ShieldCheck, Truck, Lock, RotateCcw, Recycle, Leaf } from
 import { amazonProducts, usedProducts, openBoxProducts } from '../data/mockData';
 import { useCart } from '../context/CartContext';
 import { useMode } from '../context/ModeContext';
-import ReLifeRecommendationCard from '../components/ui/ReLifeRecommendationCard';
+import CrossMarketRecommendation from '../components/marketplace/CrossMarketRecommendation';
 import AIPurchaseAssistant from '../components/ai-purchase-assistant/AIPurchaseAssistant';
 
 export default function AmazonProductDetails() {
@@ -15,115 +15,61 @@ export default function AmazonProductDetails() {
   const [product, setProduct] = useState(null);
   const [alternative, setAlternative] = useState(null);
   const [added, setAdded] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  if (!id || id === 'undefined') {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50 flex-col">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
+        <p className="text-gray-600 mb-4">The product you are looking for does not exist or the link is broken.</p>
+        <button onClick={() => navigate('/')} className="bg-amber-400 hover:bg-amber-500 text-gray-900 px-6 py-2 rounded-full font-medium shadow-sm">
+          Return Home
+        </button>
+      </div>
+    );
+  }
 
   useEffect(() => {
-    const found = amazonProducts.find(p => p.id === id);
-    if (found) {
-      setProduct(found);
-      const isAlreadyInCart = cartItems.some(item => item.id === found.id);
-      setAdded(isAlreadyInCart);
+    import('../api/client').then(({ getAmazonProduct, getCrossMarketRecommendations }) => {
+      getAmazonProduct(id).then(found => {
+        if (found) {
+          setProduct(found);
+          const isAlreadyInCart = cartItems.some(item => (item.productId || item._id || item.id) === found._id);
+          setAdded(isAlreadyInCart);
 
-      // Recommendation Engine
-      const allReLifeProducts = [...openBoxProducts, ...usedProducts];
-      let bestMatch = null;
-      let highestScore = -1;
-
-      // Parse Amazon price
-      const parsePrice = (priceStr) => parseFloat(priceStr.replace(/,/g, ''));
-      const amazonPriceNum = parsePrice(found.price);
-
-      // Simple keyword matching for demo
-      const searchKeywords = found.name.toLowerCase();
-      
-      const validMatches = allReLifeProducts.filter(relife => {
-        const relifeName = relife.name.toLowerCase();
-        let matches = false;
-        
-        if (searchKeywords.includes('macbook air') && relifeName.includes('macbook air')) matches = true;
-        if (searchKeywords.includes('echo dot') && relifeName.includes('echo dot')) matches = true;
-        if (searchKeywords.includes('echo dot') && relifeName.includes('echo (4th gen)')) matches = true;
-        if (searchKeywords.includes('kindle paperwhite') && relifeName.includes('kindle paperwhite')) matches = true;
-        if (searchKeywords.includes('wh-1000xm4') && relifeName.includes('wh-1000xm4')) matches = true;
-
-        if (matches) {
-          // Price Filtering: ensure relifePrice < amazonPrice
-          const relifePriceNum = parsePrice(relife.relifePrice);
-          if (relifePriceNum >= amazonPriceNum) return false;
-          return true;
-        }
-        return false;
-      });
-
-      // Find the absolute best unit across all valid base products
-      let bestUnitRef = null;
-      let highestCondition = -1;
-      let bestPriceAdvantage = -1;
-      
-      validMatches.forEach(relife => {
-        if (!relife.availableUnits) return;
-        
-        relife.availableUnits.forEach(unit => {
-          // Parse unit price
-          const unitPriceNum = parsePrice(unit.price);
-          
-          // Price Filtering: ensure unit is cheaper than new Amazon product
-          if (unitPriceNum >= amazonPriceNum) return;
-
-          const priceAdvantage = amazonPriceNum - unitPriceNum;
-          
-          // Generate metrics (using unit.id instead of relife.id)
-          const idHash = unit.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-          
-          const co2SavedNum = relife.co2Saved ? parseInt(relife.co2Saved) : (idHash % 100) + 10;
-          const sustainabilityImpact = Math.min(co2SavedNum * 2, 100); 
-          
-          const lifespanExtensionYears = ((idHash % 50) / 10) + 1; 
-          const lifespanExtensionScore = Math.min(lifespanExtensionYears * 20, 100);
-          
-          const repairability = 60 + (idHash % 40); 
-          const logisticsEfficiency = 70 + (idHash % 30); 
-          
-          const greenScore = Math.round(
-            0.25 * unit.conditionScore + 
-            0.25 * sustainabilityImpact + 
-            0.20 * lifespanExtensionScore + 
-            0.15 * repairability + 
-            0.15 * logisticsEfficiency
-          );
-
-          // Store generated metrics on the unit
-          unit.calculatedMetrics = {
-            greenScore,
-            co2Saved: `${co2SavedNum}kg`,
-            lifespanExtension: `+${lifespanExtensionYears.toFixed(1)} Years`
-          };
-
-          // Condition-First Ranking Logic
-          let isBetter = false;
-          if (unit.conditionScore > highestCondition) {
-            isBetter = true;
-          } else if (unit.conditionScore === highestCondition) {
-            if (priceAdvantage > bestPriceAdvantage) {
-              isBetter = true;
+          // Get cross-market recommendation
+          const queryId = found._id || found.id;
+          getCrossMarketRecommendations(queryId).then(rec => {
+            if (rec) {
+              setAlternative(rec);
             }
-          }
-
-          if (isBetter) {
-            highestCondition = unit.conditionScore;
-            bestPriceAdvantage = priceAdvantage;
-            bestUnitRef = { product: relife, unit };
-          }
-        });
+          }).catch(console.error);
+        }
+        setLoading(false);
+      }).catch(err => {
+        console.error(err);
+        setLoading(false);
       });
-
-      setAlternative(bestUnitRef);
-    }
+    });
   }, [id, cartItems]);
 
-  if (!product) {
+
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amazon-orange"></div>
+      </div>
+    );
+  }
+
+  if (!product && !loading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50 flex-col">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
+        <p className="text-gray-600 mb-4">We could not find the product you were looking for.</p>
+        <button onClick={() => navigate('/')} className="bg-amber-400 hover:bg-amber-500 text-gray-900 px-6 py-2 rounded-full font-medium shadow-sm">
+          Return Home
+        </button>
       </div>
     );
   }
@@ -203,8 +149,8 @@ export default function AmazonProductDetails() {
           <div className="mb-4">
             <div className="flex items-start">
               <span className="text-sm font-medium mt-1 mr-1">₹</span>
-              <span className="text-[32px] font-medium leading-none">{product.price.split('.')[0]}</span>
-              <span className="text-sm font-medium mt-1">{product.price.split('.')[1] ? `.${product.price.split('.')[1]}` : ''}</span>
+              <span className="text-[32px] font-medium leading-none">{String(product.price).split('.')[0]}</span>
+              <span className="text-sm font-medium mt-1">{String(product.price).split('.')[1] ? `.${String(product.price).split('.')[1]}` : ''}</span>
             </div>
             <div className="text-sm text-[#565959] mt-1">
               List Price: <span className="line-through">₹{product.oldPrice}</span>
@@ -215,13 +161,7 @@ export default function AmazonProductDetails() {
           </div>
 
           {/* Recommendation Widget */}
-          {alternative ? (
-            <ReLifeRecommendationCard recommendation={alternative} amazonProduct={product} />
-          ) : (
-            <div className="bg-gray-50 border border-[#D5D9D9] rounded-lg p-5 my-4 text-center">
-              <p className="text-[#565959] text-sm">No recommended ReLife alternative currently available.</p>
-            </div>
-          )}
+          <CrossMarketRecommendation recommendationData={alternative} />
 
           {/* AI Purchase Assistant Widget */}
           <AIPurchaseAssistant 
@@ -262,7 +202,7 @@ export default function AmazonProductDetails() {
         <div className="w-full lg:w-[20%]">
           <div className="border border-[#D5D9D9] rounded-lg p-4 sticky top-4">
             <div className="text-2xl font-medium mb-1">
-              <span className="text-sm align-top">₹</span>{product.price.split('.')[0]}<span className="text-sm align-top">{product.price.split('.')[1] ? `.${product.price.split('.')[1]}` : ''}</span>
+              <span className="text-sm align-top">₹</span>{String(product.price).split('.')[0]}<span className="text-sm align-top">{String(product.price).split('.')[1] ? `.${String(product.price).split('.')[1]}` : ''}</span>
             </div>
             <div className="text-sm font-bold text-[#0F1111] mb-2">Free Returns</div>
             <div className="text-sm text-[#007185] hover:underline cursor-pointer mb-4">FREE delivery <span className="font-bold text-[#0F1111]">Wednesday</span></div>
@@ -282,13 +222,21 @@ export default function AmazonProductDetails() {
             </div>
 
             <button 
-              onClick={handleAddToCart}
+              onClick={() => {
+                const pId = product._id || product.id;
+                const isInCart = cartItems.some(item => item.productId === pId || item._id === pId);
+                if (isInCart) {
+                  navigate('/cart');
+                } else {
+                  addToCart(product);
+                }
+              }}
               className={`w-full py-2.5 rounded-full mb-2 text-sm font-medium shadow-[0_2px_5px_0_rgba(213,217,217,.5)] transition-all flex items-center justify-center
-                ${added 
+                ${cartItems.some(item => item.productId === (product._id || product.id) || item._id === (product._id || product.id)) 
                   ? 'bg-[#EFFFF3] border border-[#16a34a] hover:bg-[#D5F5DF] text-[#16a34a]' 
                   : 'bg-[#FFD814] border border-[#FCD200] hover:bg-[#F7CA00] text-[#0F1111]'}`}
             >
-              {added ? '✓ Added to Cart' : 'Add to Cart'}
+              {cartItems.some(item => item.productId === (product._id || product.id) || item._id === (product._id || product.id)) ? '✓ Added to Cart' : 'Add to Cart'}
             </button>
             <button className="w-full bg-[#FFA41C] hover:bg-[#FA8900] border border-[#FF8F00] text-[#0F1111] py-2.5 rounded-full text-sm font-medium mb-4 shadow-[0_2px_5px_0_rgba(213,217,217,.5)] transition-all">
               Buy Now

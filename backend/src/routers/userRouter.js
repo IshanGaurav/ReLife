@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/authMiddleware.js';
+import { protect as requireAuth } from '../middleware/authMiddleware.js';
 import { User } from '../models/User.js';
 
 export const userRouter = Router();

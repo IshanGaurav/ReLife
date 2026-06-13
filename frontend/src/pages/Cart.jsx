@@ -28,30 +28,30 @@ export default function Cart() {
 
         <div className="flex flex-col space-y-6 pt-4">
           {cartItems.map((item) => (
-            <div key={item.id} className="flex border-b border-[#D5D9D9] pb-6 relative">
-              <div className="w-40 flex-shrink-0 cursor-pointer" onClick={() => navigate(`/relife/product/${item.id}`)}>
+            <div key={item.productId} className="flex border-b border-[#D5D9D9] pb-6 relative">
+              <div className="w-40 flex-shrink-0 cursor-pointer" onClick={() => navigate(`/relife/product/${item.productId}`)}>
                 <img src={item.image} alt={item.name} className="w-full h-32 object-contain mix-blend-multiply" />
               </div>
               
               <div className="ml-4 flex-1">
-                <h3 className="text-lg font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer leading-snug line-clamp-2 pr-24" onClick={() => navigate(`/relife/product/${item.id}`)}>
+                <h3 className="text-lg font-medium text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer leading-snug line-clamp-2 pr-24" onClick={() => navigate(`/relife/product/${item.productId}`)}>
                   {item.name}
                 </h3>
                 <p className="text-sm text-[#16a34a] font-bold mt-1">In stock</p>
                 <p className="text-xs text-[#565959] mt-1">Eligible for FREE Shipping</p>
                 <div className="text-xs font-bold text-[#0F1111] mt-1 flex items-center">
-                  Condition Score: <span className="text-[#C7511F] ml-1">{item.conditionScore}/100</span>
+                  Condition Score: <span className="text-[#C7511F] ml-1">{item.conditionScore || 'N/A'}/100</span>
                 </div>
                 
                 <div className="flex items-center mt-4 space-x-4">
                   <div className="flex items-center border border-[#D5D9D9] rounded-md shadow-sm bg-[#F0F2F2] overflow-hidden">
-                    <button className="px-3 py-1 hover:bg-[#E3E6E6]" onClick={() => updateQuantity(item.id, item.quantity - 1)}>-</button>
+                    <button className="px-3 py-1 hover:bg-[#E3E6E6]" onClick={() => updateQuantity(item.productId, item.quantity - 1)}>-</button>
                     <span className="px-3 py-1 bg-white border-l border-r border-[#D5D9D9] text-sm font-bold">{item.quantity}</span>
-                    <button className="px-3 py-1 hover:bg-[#E3E6E6]" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
+                    <button className="px-3 py-1 hover:bg-[#E3E6E6]" onClick={() => updateQuantity(item.productId, item.quantity + 1)}>+</button>
                   </div>
                   
                   <div className="border-l border-gray-300 h-4"></div>
-                  <button className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline" onClick={() => removeFromCart(item.id)}>Delete</button>
+                  <button className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline" onClick={() => removeFromCart(item.productId)}>Delete</button>
                   
                   <div className="border-l border-gray-300 h-4"></div>
                   <button className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline">Save for later</button>

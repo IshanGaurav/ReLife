@@ -139,7 +139,7 @@ export default function ReLifeRecommendationCard({ recommendation, amazonProduct
             onClick={(e) => {
               e.stopPropagation();
               setMode('relife');
-              navigate(`/relife/product/${product.id}`, { state: { recommendedUnitId: unit.id, amazonProduct: amazonProduct } });
+              navigate(`/relife/product/${product._id || product.id}`, { state: { recommendedUnitId: unit.id, amazonProduct: amazonProduct } });
             }}
             animate={{
               scale: isHovered ? 1.02 : 1,

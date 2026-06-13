@@ -1,18 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Leaf, Award, Recycle, ShoppingBag, Truck, Calendar, TreePine, Wind, Zap, Trophy, Sparkles, Ruler, ChevronRight } from 'lucide-react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Leaf, Award, Recycle, ShoppingBag, Truck, Calendar, TreePine, Wind, Zap, Trophy, Sparkles, Ruler, ChevronRight, Loader2 } from 'lucide-react';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { transactionHistory, purchaseHistory, sellingHistory, sustainabilityChartData } from '../data/mockData';
+import { transactionHistory, sellingHistory } from '../data/mockData';
+import { getSustainabilityApi, getMyOrdersApi, getTransactionsApi, getCreditBalanceApi } from '../api/client';
 
 export default function Profile() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'dashboard');
   const navigate = useNavigate();
+  const [sustainabilityData, setSustainabilityData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
+  const [orders, setOrders] = useState([]);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(true);
+  const [transactions, setTransactions] = useState([]);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [isCreditsLoading, setIsCreditsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      getSustainabilityApi().then(data => {
+        if (data && data.success) {
+          setSustainabilityData(data);
+        }
+        setIsLoading(false);
+      }).catch(err => {
+        console.error(err);
+        setIsLoading(false);
+      });
+
+      getMyOrdersApi().then(data => {
+        if (data && data.success) {
+          setOrders(data.orders);
+        }
+        setIsOrdersLoading(false);
+      }).catch(err => {
+        console.error(err);
+        setIsOrdersLoading(false);
+      });
+
+      getTransactionsApi().then(data => {
+        if (data && data.success) {
+          setTransactions(data.transactions);
+        }
+        setIsCreditsLoading(false);
+      });
+
+      getCreditBalanceApi().then(data => {
+        if (data && data.success) {
+          setCreditBalance(data.balance);
+        }
+      });
+    }
+  }, [user]);
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const getBadge = (credits) => {
+    if (credits >= 5000) return 'Platinum';
+    if (credits >= 1500) return 'Gold';
+    if (credits >= 500) return 'Silver';
+    return 'Bronze';
+  };
 
   const renderTabContent = () => {
     switch(activeTab) {
@@ -23,17 +82,17 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Leaf className="w-8 h-8 text-[#16a34a] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.credits}</h3>
+                <h3 className="text-3xl font-bold text-[#111]">{user.greenCredits || 0}</h3>
                 <p className="text-sm text-[#565959]">Green Credits</p>
               </div>
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Recycle className="w-8 h-8 text-[#007185] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.recycled}</h3>
-                <p className="text-sm text-[#565959]">Items Recycled</p>
+                <h3 className="text-3xl font-bold text-[#111]">{user.itemsReused || 0}</h3>
+                <p className="text-sm text-[#565959]">Items Reused</p>
               </div>
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Wind className="w-8 h-8 text-[#C7511F] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.co2}</h3>
+                <h3 className="text-3xl font-bold text-[#111]">{user.co2Saved || 0}</h3>
                 <p className="text-sm text-[#565959]">CO₂ Saved</p>
               </div>
             </div>
@@ -41,39 +100,56 @@ export default function Profile() {
             {/* Sustainability Impact Chart */}
             <div className="bg-white border border-[#D5D9D9] p-6 rounded shadow-sm">
               <h2 className="text-xl font-bold mb-4 text-[#111]">Your Sustainability Impact</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sustainabilityChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#16a34a" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#16a34a" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorWaste" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#007185" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#007185" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="co2" name="CO2 Saved (kg)" stroke="#16a34a" fillOpacity={1} fill="url(#colorCo2)" />
-                    <Area type="monotone" dataKey="waste" name="Waste Diverted (kg)" stroke="#007185" fillOpacity={1} fill="url(#colorWaste)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              
-              <div className="flex items-center justify-around mt-6 pt-4 border-t border-[#D5D9D9]">
-                <div className="text-center">
-                  <p className="text-xs text-[#565959] uppercase font-bold tracking-wider">Equivalent to</p>
-                  <p className="text-lg font-bold flex items-center justify-center text-[#111]"><TreePine className="w-5 h-5 mr-1 text-[#16a34a]"/> 14 Trees Planted</p>
+              {isLoading ? (
+                <div className="h-64 flex items-center justify-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#007185]" />
                 </div>
-                <div className="text-center">
-                  <p className="text-xs text-[#565959] uppercase font-bold tracking-wider">Waste Diverted</p>
-                  <p className="text-lg font-bold flex items-center justify-center text-[#111]"><Recycle className="w-5 h-5 mr-1 text-[#007185]"/> 30 kg</p>
+              ) : sustainabilityData && (sustainabilityData.itemsReused > 0 || sustainabilityData.greenCredits > 0 || sustainabilityData.co2Saved > 0) ? (
+                <>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sustainabilityData.monthlyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorCo2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#16a34a" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#16a34a" stopOpacity={0}/>
+                          </linearGradient>
+                          <linearGradient id="colorWaste" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#007185" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#007185" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <Tooltip />
+                        <Area type="monotone" dataKey="co2" name="CO2 Saved (kg)" stroke="#16a34a" fillOpacity={1} fill="url(#colorCo2)" />
+                        <Area type="monotone" dataKey="waste" name="Waste Diverted (kg)" stroke="#007185" fillOpacity={1} fill="url(#colorWaste)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="flex items-center justify-around mt-6 pt-4 border-t border-[#D5D9D9]">
+                    <div className="text-center">
+                      <p className="text-xs text-[#565959] uppercase font-bold tracking-wider">Equivalent to</p>
+                      <p className="text-lg font-bold flex items-center justify-center text-[#111]"><TreePine className="w-5 h-5 mr-1 text-[#16a34a]"/> {sustainabilityData.treesEquivalent || 0} Trees Planted</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-[#565959] uppercase font-bold tracking-wider">Waste Diverted</p>
+                      <p className="text-lg font-bold flex items-center justify-center text-[#111]"><Recycle className="w-5 h-5 mr-1 text-[#007185]"/> {sustainabilityData.wasteDiverted || 0} kg</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-[#565959]">
+                  <Leaf className="w-12 h-12 text-gray-300 mb-4" />
+                  <p className="font-bold text-lg text-[#111] mb-2">No sustainability activity yet.</p>
+                  <p className="mb-4">Purchase a ReLife product to start making an impact.</p>
+                  <button onClick={() => navigate('/relife')} className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-lg px-6 py-2 font-bold shadow-sm text-[#111]">
+                    Shop ReLife
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Achievements */}
@@ -116,77 +192,141 @@ export default function Profile() {
           <div className="bg-white border border-[#D5D9D9] p-6 rounded shadow-sm animate-fade-in">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-[#111]">Credit Transactions</h2>
-              <span className="bg-[#EFFFF3] text-[#16a34a] px-3 py-1 rounded-full text-sm font-bold">Balance: {user.credits}</span>
+              <span className="bg-[#EFFFF3] text-[#16a34a] px-3 py-1 rounded-full text-sm font-bold">Balance: {creditBalance}</span>
             </div>
-            <div className="space-y-4">
-              {transactionHistory.map((tx) => (
-                <div key={tx.id} className="flex justify-between items-center p-4 border border-gray-100 rounded hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center">
-                    <div className={`p-2 rounded-full mr-4 ${tx.type === 'earn' ? 'bg-[#EFFFF3] text-[#16a34a]' : 'bg-[#fff0f0] text-[#C40000]'}`}>
-                      {tx.type === 'earn' ? <Zap className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+            
+            {isCreditsLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="w-8 h-8 animate-spin text-[#007185]" />
+              </div>
+            ) : transactions.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 border border-gray-100 rounded">
+                <Zap className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-lg font-bold text-gray-700">No Transactions Yet</h3>
+                <p className="text-gray-500 mt-1">Start shopping ReLife products to earn Green Credits!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((tx) => (
+                  <div key={tx._id} className="flex justify-between items-center p-4 border border-gray-100 rounded hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center">
+                      <div className={`p-2 rounded-full mr-4 ${['PURCHASE', 'SELL', 'RECYCLE'].includes(tx.type) ? 'bg-[#EFFFF3] text-[#16a34a]' : 'bg-[#fff0f0] text-[#C40000]'}`}>
+                        {['PURCHASE', 'SELL', 'RECYCLE'].includes(tx.type) ? <Zap className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-[#111]">{tx.description}</h4>
+                        <p className="text-xs text-[#565959]">
+                          {new Date(tx.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} • {tx.productName}
+                          {tx.co2Saved > 0 && ` • ${tx.co2Saved}kg CO₂ Saved`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-[#111]">{tx.title}</h4>
-                      <p className="text-xs text-[#565959]">{tx.date} • {tx.reason}</p>
+                    <div className={`font-bold text-lg ${['PURCHASE', 'SELL', 'RECYCLE'].includes(tx.type) ? 'text-[#16a34a]' : 'text-[#C40000]'}`}>
+                      {['PURCHASE', 'SELL', 'RECYCLE'].includes(tx.type) ? '+' : '-'}{tx.credits}
                     </div>
                   </div>
-                  <div className={`font-bold text-lg ${tx.type === 'earn' ? 'text-[#16a34a]' : 'text-[#C40000]'}`}>
-                    {tx.type === 'earn' ? '+' : ''}{tx.points}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       case 'purchases':
         return (
           <div className="bg-white border border-[#D5D9D9] p-6 rounded shadow-sm animate-fade-in">
-            <h2 className="text-xl font-bold text-[#111] mb-6">Purchase History</h2>
-            <div className="space-y-4">
-              {purchaseHistory.map((order) => (
-                <div key={order.id} className="border border-[#D5D9D9] rounded p-4">
-                  <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-100 text-sm">
-                    <div className="flex space-x-6 text-[#565959]">
-                      <div>
-                        <p className="text-xs">ORDER PLACED</p>
-                        <p className="text-[#111]">{order.date}</p>
+            <h2 className="text-xl font-bold text-[#111] mb-6">Your Orders</h2>
+            
+            {isOrdersLoading ? (
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="w-8 h-8 animate-spin text-[#007185]" />
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-12">
+                <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-[#111] mb-2">You have not placed any orders yet.</h3>
+                <p className="text-[#565959] mb-6">When you buy items, they will appear here.</p>
+                <button 
+                  onClick={() => navigate('/relife')}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-lg px-6 py-2 font-bold shadow-sm text-[#111]"
+                >
+                  Explore ReLife Marketplace
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {orders.map((order) => (
+                  <div key={order._id} className="border border-[#D5D9D9] rounded overflow-hidden">
+                    {/* Order Header */}
+                    <div className="bg-gray-50 flex justify-between items-center p-4 border-b border-[#D5D9D9] text-sm">
+                      <div className="flex space-x-8 text-[#565959]">
+                        <div>
+                          <p className="text-xs uppercase">Order Placed</p>
+                          <p className="text-[#111]">{new Date(order.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase">Total</p>
+                          <p className="text-[#111]">₹{order.totalAmount}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs">TOTAL</p>
-                        <p className="text-[#111]">{order.total}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs">TYPE</p>
-                        <span className="bg-gray-100 px-2 py-0.5 rounded text-xs text-[#111] mt-1 inline-block">{order.type}</span>
+                      <div className="text-right">
+                        <p className="text-xs text-[#565959] uppercase">Order # {order._id.substring(order._id.length - 8).toUpperCase()}</p>
+                        <a href="#" className="text-[#007185] hover:text-[#C7511F] hover:underline">View invoice</a>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-[#565959]">ORDER # {order.id}</p>
-                      <a href="#" className="text-[#007185] hover:text-[#C7511F] hover:underline">View invoice</a>
+                    
+                    {/* Order Items */}
+                    <div className="p-4 space-y-4">
+                      {order.items.map((item, index) => (
+                        <div key={index} className="flex flex-col md:flex-row gap-4 border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                          <div className="w-24 h-24 flex-shrink-0 bg-gray-50 border border-gray-200 rounded p-1 flex items-center justify-center">
+                            {item.image ? (
+                              <img src={item.image} alt={item.name} className="max-w-full max-h-full object-contain" />
+                            ) : (
+                              <ShoppingBag className="w-8 h-8 text-gray-300" />
+                            )}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <h4 className="font-bold text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer text-lg mb-1">{item.name}</h4>
+                            <p className="text-[#16a34a] font-bold text-sm flex items-center mb-2"><Truck className="w-4 h-4 mr-1"/> {order.status === 'pending' ? 'Arriving soon' : order.status}</p>
+                            
+                            {item.productType === 'RelifeProduct' && (
+                              <div className="bg-[#f0fdfa] border border-[#ccfbf1] p-3 rounded mb-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                <div>
+                                  <span className="text-[#565959] block">Condition</span>
+                                  <span className="font-bold text-[#111]">{item.conditionScore || 'Excellent'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#565959] block">Credits Earned</span>
+                                  <span className="font-bold text-[#16a34a] flex items-center"><Zap className="w-3 h-3 mr-0.5" /> +{item.greenCredits || 150}</span>
+                                </div>
+                                <div>
+                                  <span className="text-[#565959] block">CO₂ Saved</span>
+                                  <span className="font-bold text-[#007185] flex items-center"><Wind className="w-3 h-3 mr-0.5" /> {item.co2Saved || 45} kg</span>
+                                </div>
+                                <div className="flex items-center">
+                                  <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200 uppercase text-[10px] font-bold">ReLife Unit</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-center space-x-3 mt-2">
+                              <button className="bg-[#FFD814] border border-[#FCD200] hover:bg-[#F7CA00] rounded py-1 px-4 text-sm text-[#111] shadow-sm">
+                                View Product
+                              </button>
+                              {item.productType === 'RelifeProduct' && (
+                                <button className="bg-white border border-[#D5D9D9] hover:bg-gray-50 rounded py-1 px-4 text-sm text-[#111] shadow-sm flex items-center">
+                                  <Award className="w-4 h-4 mr-1 text-[#007185]" /> View Passport
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="font-bold text-[#111] text-lg">{order.title}</h4>
-                      <p className="text-[#16a34a] font-bold text-sm flex items-center mt-1"><Truck className="w-4 h-4 mr-1"/> {order.status}</p>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      {(order.title.toLowerCase().includes('shoe') || order.title.toLowerCase().includes('shirt') || order.title.toLowerCase().includes('nike') || order.title.toLowerCase().includes('jacket')) && (
-                        <button 
-                          onClick={() => navigate('/profile/purchase-assistant')}
-                          className="bg-white border border-[#14b8a6] hover:bg-[#f0fdfa] text-[#0d9488] rounded py-1 px-3 text-sm font-bold shadow-sm flex items-center transition-colors"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 mr-1" /> View AI Fit Analysis
-                        </button>
-                      )}
-                      <button className="bg-[#f0c14b] border border-[#a88734] hover:bg-[#f4d078] rounded py-1 px-4 text-sm text-[#111] shadow-sm">
-                        View Digital Passport
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       case 'sales':
@@ -230,10 +370,10 @@ export default function Profile() {
             <p className="text-[#565959]">{user.email}</p>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3">
               <span className="flex items-center text-sm font-bold text-[#16a34a] bg-[#EFFFF3] px-3 py-1 rounded-full border border-[#B8E2C4]">
-                <Award className="w-4 h-4 mr-1" /> {user.badge}
+                <Award className="w-4 h-4 mr-1" /> {getBadge(user.greenCredits || 0)}
               </span>
               <span className="flex items-center text-sm text-[#565959]">
-                <Calendar className="w-4 h-4 mr-1" /> Member Since {user.memberSince}
+                <Calendar className="w-4 h-4 mr-1" /> Member Since {user.createdAt ? new Date(user.createdAt).getFullYear() : '2024'}
               </span>
             </div>
           </div>

@@ -6,14 +6,16 @@ import { useCart } from '../../context/CartContext';
 export default function ReLifeProductCard({ product }) {
   const navigate = useNavigate();
   const { cartItems, addToCart } = useCart();
-  const isInCart = cartItems.some(item => item.id === product.id);
+  
+  const productId = product._id || product.id;
+  const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
   
   const { id, name, originalPrice, relifePrice, sellerRating, sellerReviews, image, conditionScore, distance, passportAvailable, badge } = product;
 
   return (
     <div 
       className="bg-white rounded-md shadow-sm border border-gray-200 overflow-hidden flex flex-col group cursor-pointer hover:shadow-md transition-shadow relative"
-      onClick={() => navigate(`/relife/product/${id}`)}
+      onClick={() => navigate(`/relife/product/${productId}`)}
     >
       
       {/* ReLife Specific Badges */}

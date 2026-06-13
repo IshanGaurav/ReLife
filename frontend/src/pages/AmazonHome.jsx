@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Star, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { amazonProducts } from '../data/mockData';
+import { getAmazonProducts } from '../api/client';
 
 export default function AmazonHome() {
   const navigate = useNavigate();
+  const [amazonProducts, setAmazonProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAmazonProducts()
+      .then(data => {
+        setAmazonProducts(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load Amazon products', err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="p-8 text-center min-h-screen">Loading products...</div>;
 
   return (
     <div className="animate-fade-in -mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
@@ -57,10 +73,12 @@ export default function AmazonHome() {
         <div className="bg-white p-6 rounded-md shadow-sm border border-gray-100 mt-6">
           <h2 className="text-2xl font-bold text-amazon-blue mb-6">Trending Deals</h2>
           <div className="flex space-x-6 overflow-x-auto pb-4 hide-scrollbar">
-            {amazonProducts.map((prod) => (
+            {amazonProducts.map((prod) => {
+              const productId = prod._id || prod.id;
+              return (
               <div 
-                key={prod.id} 
-                onClick={() => navigate(`/product/${prod.id}`)}
+                key={productId} 
+                onClick={() => navigate(`/product/${productId}`)}
                 className="min-w-[200px] max-w-[200px] flex flex-col cursor-pointer group"
               >
                 <div className="bg-gray-50 h-48 rounded-sm mb-3 p-4 flex items-center justify-center overflow-hidden">
@@ -77,12 +95,13 @@ export default function AmazonHome() {
                 </div>
                 <div className="flex items-end mt-1">
                   <span className="text-sm align-top mt-1">₹</span>
-                  <span className="text-2xl font-bold text-amazon-blue">{prod.price.split('.')[0]}</span>
-                  <span className="text-sm align-top mt-1">{prod.price.split('.')[1] ? `.${prod.price.split('.')[1]}` : ''}</span>
+                  <span className="text-2xl font-bold text-amazon-blue">{String(prod.price).split('.')[0]}</span>
+                  <span className="text-sm align-top mt-1">{String(prod.price).split('.')[1] ? `.${String(prod.price).split('.')[1]}` : ''}</span>
                 </div>
                 <span className="text-xs text-[#565959] line-through mt-0.5">List: ₹{prod.oldPrice}</span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

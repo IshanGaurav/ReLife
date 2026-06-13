@@ -1,14 +1,31 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MarketplaceSearch from '../components/marketplace/MarketplaceSearch';
 import MarketplaceFilters from '../components/marketplace/MarketplaceFilters';
 import UsedProductCard from '../components/marketplace/UsedProductCard';
 import OpenBoxCard from '../components/marketplace/OpenBoxCard';
-import { usedProducts, openBoxProducts } from '../data/mockData';
+import { getUsedProducts, getOpenBoxProducts } from '../api/client';
 
 export default function Marketplace() {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const [usedProducts, setUsedProducts] = useState([]);
+  const [openBoxProducts, setOpenBoxProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getUsedProducts(), getOpenBoxProducts()])
+      .then(([usedData, openBoxData]) => {
+        setUsedProducts(usedData);
+        setOpenBoxProducts(openBoxData);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load marketplace products', err);
+        setLoading(false);
+      });
+  }, []);
 
   // Determine active tab based on URL path
   const activeTab = location.pathname.includes('/openbox') ? 'openbox' : 'used';
@@ -78,7 +95,7 @@ export default function Marketplace() {
     });
 
     return result;
-  }, [activeTab, searchQuery, selectedCategory, conditionRange, distanceRange, priceRange, sortBy]);
+  }, [activeTab, searchQuery, selectedCategory, conditionRange, distanceRange, priceRange, sortBy, usedProducts, openBoxProducts]);
 
   return (
     <div className="animate-fade-in -mt-4 bg-gray-100 min-h-screen">
@@ -126,7 +143,11 @@ export default function Marketplace() {
           </div>
 
           <div className="flex-1">
-            {filteredProducts.length === 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amazon-orange"></div>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="p-12 text-center bg-white border border-[#D5D9D9] rounded-sm">
                 <h2 className="text-xl font-bold mb-2">No products match your filters</h2>
                 <p className="text-[#565959] mb-4">Try adjusting your search criteria or clearing filters.</p>

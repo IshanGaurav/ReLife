@@ -27,6 +27,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Leaderboard from './pages/Leaderboard';
 import SearchPage from './pages/SearchPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import { ModeProvider, useMode } from './context/ModeContext';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
@@ -42,34 +43,34 @@ function RootRouter() {
       
       <main className={`${!isSellerRoute ? 'max-w-7xl mx-auto py-8 ' : ''}animate-fade-in`}>
         <Routes>
-          <Route path="/" element={mode === 'shopping' ? <AmazonHome /> : <Navigate to="/relife" replace />} />
+          <Route path="/" element={<AmazonHome />} />
           <Route path="/product/:id" element={<AmazonProductDetails />} />
           
           {/* ReLife Specific Routes */}
-          <Route path="/relife" element={mode === 'relife' ? <ReLifeHome /> : <Navigate to="/" replace />} />
-          <Route path="/relife/sell" element={mode === 'relife' ? <Upload /> : <Navigate to="/" replace />} />
-          <Route path="/relife/marketplace" element={mode === 'relife' ? <Marketplace /> : <Navigate to="/" replace />} />
-          <Route path="/relife/openbox" element={mode === 'relife' ? <Marketplace /> : <Navigate to="/" replace />} />
-          <Route path="/relife/passports" element={mode === 'relife' ? <Marketplace /> : <Navigate to="/" replace />} />
+          <Route path="/relife" element={<ReLifeHome />} />
+          <Route path="/relife/sell" element={<Upload />} />
+          <Route path="/relife/marketplace" element={<Marketplace />} />
+          <Route path="/relife/openbox" element={<Marketplace />} />
+          <Route path="/relife/passports" element={<Marketplace />} />
           <Route path="/relife/product/:id" element={<ProductDetails />} />
           <Route path="/relife/passport/:id" element={<Passport />} />
-          <Route path="/relife/credits" element={mode === 'relife' ? <Credits /> : <Navigate to="/" replace />} />
+          <Route path="/relife/credits" element={<Credits />} />
           
           {/* Shared Routes */}
           <Route path="/search" element={<SearchPage />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/fit-profile" element={<FitProfilePage />} />
-          <Route path="/profile/purchase-assistant" element={<PurchaseAssistantDashboard />} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/profile/fit-profile" element={<ProtectedRoute><FitProfilePage /></ProtectedRoute>} />
+          <Route path="/profile/purchase-assistant" element={<ProtectedRoute><PurchaseAssistantDashboard /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/leaderboard/:period" element={<Leaderboard />} />
           <Route path="/leaderboard" element={<Navigate to="/leaderboard/daily" replace />} />
 
           {/* Seller Copilot Routes */}
-          <Route path="/seller" element={<SellerLayout />}>
+          <Route path="/seller" element={<ProtectedRoute allowedRoles={['seller']}><SellerLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/seller/dashboard" replace />} />
             <Route path="dashboard" element={<SellerDashboard />} />
             <Route path="products" element={<SellerProducts />} />

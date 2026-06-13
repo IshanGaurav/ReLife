@@ -4,7 +4,7 @@ import Section from '../components/ui/Section';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
-import { usedProducts, openBoxProducts } from '../data/mockData';
+import { getRelifeProduct } from '../api/client';
 import { generatePassport } from '../utils/passportGenerator';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
@@ -18,20 +18,21 @@ export default function Passport() {
     let isMounted = true;
     setLoading(true);
     
-    // Simulate network delay
-    setTimeout(() => {
-      if (!isMounted) return;
-      const allProducts = [...usedProducts, ...openBoxProducts];
-      const product = allProducts.find(p => p.id === id);
+    getRelifeProduct(id)
+      .then(product => {
+        if (!isMounted) return;
+        if (product) {
+          setPassportData(generatePassport(product));
+        } else {
+          setPassportData(null);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to load product", err);
+        setLoading(false);
+      });
       
-      if (product) {
-        setPassportData(generatePassport(product));
-      } else {
-        setPassportData(null);
-      }
-      setLoading(false);
-    }, 600);
-    
     return () => { isMounted = false; };
   }, [id]);
 

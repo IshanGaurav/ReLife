@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShieldCheck, MapPin, Leaf, CheckCircle, ChevronRight, Star, Clock, Wrench, User, X } from 'lucide-react';
-import { usedProducts, openBoxProducts } from '../data/mockData';
 import { useCart } from '../context/CartContext';
 import { useMode } from '../context/ModeContext';
+import { getRelifeProduct } from '../api/client';
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -11,7 +11,9 @@ export default function ProductDetails() {
   const location = useLocation();
   const { cartItems, addToCart } = useCart();
   const { mode, setMode } = useMode();
+  
   const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [isUsed, setIsUsed] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
@@ -28,38 +30,45 @@ export default function ProductDetails() {
     return '0';
   };
 
-  useEffect(() => {
-    if (mode !== 'relife') setMode('relife');
-  }, [mode, setMode]);
+  if (!id || id === 'undefined') {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-50 flex-col">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
+        <p className="text-gray-600 mb-4">The product you are looking for does not exist or the link is broken.</p>
+        <button onClick={() => navigate('/')} className="bg-amber-400 hover:bg-amber-500 text-gray-900 px-6 py-2 rounded-full font-medium shadow-sm">
+          Return Home
+        </button>
+      </div>
+    );
+  }
+
 
   useEffect(() => {
-    // Find product in mock data
-    let foundProduct = usedProducts.find(p => p.id === id);
-    let used = true;
-    
-    if (!foundProduct) {
-      foundProduct = openBoxProducts.find(p => p.id === id);
-      used = false;
-    }
-
-    if (foundProduct) {
-      setProduct(foundProduct);
-      setIsUsed(used);
-      
-      let initialUnit = null;
-      if (location.state?.recommendedUnitId && foundProduct.availableUnits) {
-        initialUnit = foundProduct.availableUnits.find(u => u.id === location.state.recommendedUnitId);
-      }
-      if (!initialUnit && foundProduct.availableUnits?.length > 0) {
-        // Condition-First ranking logic: default to highest condition score unit
-        initialUnit = foundProduct.availableUnits.reduce((best, curr) => (curr.conditionScore > best.conditionScore ? curr : best), foundProduct.availableUnits[0]);
-      }
-      if (initialUnit) setSelectedUnit(initialUnit);
-    }
+    getRelifeProduct(id)
+      .then(foundProduct => {
+         if (foundProduct) {
+            setProduct(foundProduct);
+            setIsUsed(foundProduct.isUsed);
+            
+            let initialUnit = null;
+            if (location.state?.recommendedUnitId && foundProduct.availableUnits) {
+              initialUnit = foundProduct.availableUnits.find(u => u.unitId === location.state.recommendedUnitId);
+            }
+            if (!initialUnit && foundProduct.availableUnits?.length > 0) {
+              initialUnit = foundProduct.availableUnits.reduce((best, curr) => (curr.conditionScore > best.conditionScore ? curr : best), foundProduct.availableUnits[0]);
+            }
+            if (initialUnit) setSelectedUnit(initialUnit);
+         }
+         setLoading(false);
+      })
+      .catch(err => {
+         console.error('Failed to load product', err);
+         setLoading(false);
+      });
   }, [id, location.state]);
 
   useEffect(() => {
-    if (location.state?.recommendedUnitId && unitsSectionRef.current && selectedUnit?.id === location.state.recommendedUnitId) {
+    if (location.state?.recommendedUnitId && unitsSectionRef.current && (selectedUnit?.unitId || selectedUnit?._id || selectedUnit?.id) === location.state.recommendedUnitId) {
       setTimeout(() => {
         unitsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 300);
@@ -138,7 +147,8 @@ export default function ProductDetails() {
             )}
             <div className="flex items-end">
               <span className="text-sm text-[#CC0C39] font-bold mt-1">₹</span>
-              <span className="text-3xl font-medium text-[#CC0C39]">{selectedUnit.price.split('.')[0]}</span>
+              <span className="text-3xl font-medium text-[#CC0C39]">{String(selectedUnit.price).split('.')[0]}</span>
+              <span className="text-sm font-medium mt-1">{String(selectedUnit.price).split('.')[1] ? `.${String(selectedUnit.price).split('.')[1]}` : ''}</span>
             </div>
             <div className="text-sm text-[#565959] mt-1">
               Original Price: <span className="line-through">₹{product.originalPrice}</span>
@@ -146,8 +156,8 @@ export default function ProductDetails() {
             <div className="text-sm font-bold text-[#16a34a] mt-1">
               {(() => {
                 try {
-                  const orig = parseFloat(product.originalPrice.replace(/,/g, ''));
-                  const relife = parseFloat(selectedUnit.price.replace(/,/g, ''));
+                  const orig = parseFloat(String(product.originalPrice).replace(/,/g, ''));
+                  const relife = parseFloat(String(selectedUnit.price).replace(/,/g, ''));
                   if (orig && relife) {
                     const saved = orig - relife;
                     const percent = Math.round((saved / orig) * 100);
@@ -181,7 +191,7 @@ export default function ProductDetails() {
                       onClick={(e) => {
                         e.preventDefault();
                         if (product?.id) {
-                          navigate(`/relife/passport/${product.id}`);
+                          navigate(`/relife/passport/${product._id || product.id}`);
                         }
                       }}
                       className="text-xs text-[#007185] hover:text-[#C7511F] hover:underline bg-transparent border-none p-0 cursor-pointer text-left"
@@ -197,7 +207,7 @@ export default function ProductDetails() {
           </div>
           
           {/* New Product vs Recommended Unit Comparison */}
-          {location.state?.amazonProduct && location.state?.recommendedUnitId === selectedUnit.id && (
+          {location.state?.amazonProduct && location.state?.recommendedUnitId === (selectedUnit.unitId || selectedUnit._id || selectedUnit.id) && (
             <div className="py-4 border-t border-[#D5D9D9] mb-4">
               <h3 className="font-bold text-[#0F1111] mb-3">New Product vs Recommended ReLife Unit</h3>
               <div className="grid grid-cols-2 gap-0 border border-[#D5D9D9] rounded-lg overflow-hidden text-sm text-[#0F1111] shadow-sm">
@@ -219,8 +229,8 @@ export default function ProductDetails() {
                       <span>Savings</span> <span>₹{calculateSavings(location.state.amazonProduct.price, selectedUnit.price)}</span>
                     </div>
                     <div className="flex justify-between border-b border-[#e77600]/30 pb-1"><span>Condition</span> <span className="font-bold text-[#0F1111]">{selectedUnit.conditionScore}/100</span></div>
-                    <div className="flex justify-between border-b border-[#e77600]/30 pb-1"><span>CO₂ Saved</span> <span className="font-bold text-[#16a34a]">{(selectedUnit.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 100) + 10}kg</span></div>
-                    <div className="flex justify-between"><span>Life Extension</span> <span className="font-bold text-[#16a34a]">+{(((selectedUnit.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 50) / 10) + 1).toFixed(1)} Yrs</span></div>
+                    <div className="flex justify-between border-b border-[#e77600]/30 pb-1"><span>CO₂ Saved</span> <span className="font-bold text-[#16a34a]">{((selectedUnit.unitId || selectedUnit._id || selectedUnit.id || 'abc').toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 100) + 10}kg</span></div>
+                    <div className="flex justify-between"><span>Life Extension</span> <span className="font-bold text-[#16a34a]">+{((((selectedUnit.unitId || selectedUnit._id || selectedUnit.id || 'abc').toString().split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 50) / 10) + 1).toFixed(1)} Yrs</span></div>
                   </div>
                 </div>
               </div>
@@ -230,7 +240,7 @@ export default function ProductDetails() {
           {/* Available Units Selection */}
           <div className="py-4 border-t border-[#D5D9D9]" ref={unitsSectionRef}>
             
-            {location.state?.recommendedUnitId === selectedUnit.id && (
+            {location.state?.recommendedUnitId === (selectedUnit.unitId || selectedUnit._id || selectedUnit.id) && (
               <div className="mb-4 bg-[#FF9900]/10 border border-[#e77600] rounded-lg p-4 shadow-sm animate-fade-in">
                 <div className="flex items-center text-[#B12704] font-bold mb-2">
                   <span className="mr-2 text-xl">🏆</span> AI Recommended Unit
@@ -285,19 +295,23 @@ export default function ProductDetails() {
             <h5 className="text-[#007185] font-bold text-lg mb-2">In stock</h5>
             <button 
               className={`w-full rounded-full py-2.5 text-sm font-bold shadow-sm mb-2 transition-colors flex items-center justify-center ${
-                cartItems.some(item => item.id === selectedUnit.id)
+                cartItems.some(item => item.productId === (selectedUnit._id || selectedUnit.id) || item._id === (selectedUnit._id || selectedUnit.id))
                   ? 'bg-[#16a34a] text-white hover:bg-green-700 border-transparent' 
                   : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200]'
               }`}
               onClick={() => {
-                if (cartItems.some(item => item.id === selectedUnit.id)) {
+                const productId = selectedUnit._id || selectedUnit.id;
+                const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
+                if (isInCart) {
                   navigate('/cart');
                 } else {
-                  addToCart({ ...product, ...selectedUnit });
+                  addToCart({ ...product, ...selectedUnit, productId: selectedUnit._id || selectedUnit.id });
                 }
               }}
             >
-              {cartItems.some(item => item.id === selectedUnit.id) ? '✓ Added to Cart' : 'Add to Cart'}
+              <span className="font-bold">
+                {cartItems.some(item => item.productId === (selectedUnit._id || selectedUnit.id) || item._id === (selectedUnit._id || selectedUnit.id)) ? '✓ Added to Cart' : 'Add to Cart'}
+              </span>
             </button>
             <button 
               className="w-full bg-[#FFA41C] hover:bg-[#FA8900] border border-[#FF8F00] rounded-full py-2.5 text-sm font-bold shadow-sm"
@@ -386,8 +400,8 @@ export default function ProductDetails() {
               className="mt-6 w-full bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-md px-4 py-2 font-bold text-sm shadow-sm flex justify-center items-center"
               onClick={() => {
                 // Ensure product has a passport generated/available before routing
-                if (product && product.id) {
-                  navigate(`/relife/passport/${product.id}`);
+                if (product && (product._id || product.id)) {
+                  navigate(`/relife/passport/${product._id || product.id}`);
                 }
               }}
             >

@@ -1,68 +1,63 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { loginUserApi, registerUserApi, getMeApi } from '../api/client';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('relife_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('relife_user', JSON.stringify(user));
+    const token = localStorage.getItem('relife_jwt');
+    if (token) {
+      getMeApi()
+        .then((userData) => {
+          setUser(userData);
+        })
+        .catch(() => {
+          localStorage.removeItem('relife_jwt');
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
     } else {
-      localStorage.removeItem('relife_user');
+      setLoading(false);
     }
-  }, [user]);
+  }, []);
 
-  const login = (email, password, role = 'user') => {
-    // Mock login logic
-    if (email && password) {
-      setUser({
-        name: email.split('@')[0].split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' '),
-        email: email,
-        role: role,
-        memberSince: 'June 2026',
-        badge: 'Silver Circular Citizen',
-        credits: 1250,
-        recycled: 14,
-        co2: '52kg',
-        avatar: `https://ui-avatars.com/api/?name=${email}&background=16a34a&color=fff`,
-        city: 'Patna',
-        state: 'Bihar'
-      });
-      return true;
+  const login = async (email, password, role) => {
+    try {
+      const data = await loginUserApi(email, password, role);
+      localStorage.setItem('relife_jwt', data.token);
+      setUser(data);
+      return { success: true, role: data.role };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Login failed' };
     }
-    return false;
   };
 
-  const signup = (name, email, password) => {
-    if (name && email && password) {
-      setUser({
-        name: name,
-        email: email,
-        memberSince: 'Today',
-        badge: 'Green Starter',
-        credits: 100, // Sign up bonus
-        recycled: 0,
-        co2: '0kg',
-        avatar: `https://ui-avatars.com/api/?name=${name}&background=16a34a&color=fff`,
-        city: 'Patna',
-        state: 'Bihar'
-      });
-      return true;
+  const signup = async (name, email, password, role) => {
+    try {
+      const data = await registerUserApi(name, email, password, role);
+      localStorage.setItem('relife_jwt', data.token);
+      setUser(data);
+      return { success: true, role: data.role };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || error.message || 'Registration failed' };
     }
-    return false;
   };
 
   const logout = () => {
+    localStorage.removeItem('relife_jwt');
     setUser(null);
   };
 
+  const updateUser = (newUserData) => {
+    setUser(prev => ({ ...prev, ...newUserData }));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
-      {children}
+    <AuthContext.Provider value={{ user, login, signup, logout, loading, updateUser }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }

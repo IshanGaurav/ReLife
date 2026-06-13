@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { usedProducts, openBoxProducts, amazonProducts } from '../data/mockData';
 import UsedProductCard from '../components/marketplace/UsedProductCard';
 import OpenBoxCard from '../components/marketplace/OpenBoxCard';
 import { useMode } from '../context/ModeContext';
 import { Star } from 'lucide-react';
+import { searchProducts } from '../api/client';
 
 // A simple local card to match Amazon retail products since there is no standalone component
 function AmazonProductCard({ prod, onClick }) {
@@ -32,8 +32,8 @@ function AmazonProductCard({ prod, onClick }) {
       
       <div className="flex items-end mt-1">
         <span className="text-sm align-top mt-1">₹</span>
-        <span className="text-2xl font-bold text-[#0F1111]">{prod.price.split('.')[0]}</span>
-        <span className="text-sm align-top mt-1">{prod.price.split('.')[1] ? `.${prod.price.split('.')[1]}` : ''}</span>
+        <span className="text-2xl font-bold text-[#0F1111]">{String(prod.price).split('.')[0]}</span>
+        <span className="text-sm align-top mt-1">{String(prod.price).split('.')[1] ? `.${String(prod.price).split('.')[1]}` : ''}</span>
       </div>
       {prod.oldPrice && <span className="text-xs text-[#565959] line-through mt-0.5">List: ₹{prod.oldPrice}</span>}
     </div>
@@ -50,35 +50,31 @@ export default function SearchPage() {
   const searchMode = queryParams.get('mode') || mode;
   const query = rawQuery.toLowerCase();
 
-  const searchResults = useMemo(() => {
-    if (!query) return { used: [], openBox: [], amazon: [] };
+  const [searchResults, setSearchResults] = useState({ used: [], openBox: [], amazon: [] });
+  const [loading, setLoading] = useState(false);
 
-    const filterProducts = (products) => {
-      return products.filter((p) => {
-        const textToSearch = [
-          p.name,
-          p.brand,
-          p.category,
-          p.description
-        ].filter(Boolean).join(' ').toLowerCase();
-
-        return textToSearch.includes(query);
-      });
-    };
-
-    if (searchMode === 'shopping') {
-      return {
-        used: [],
-        openBox: [],
-        amazon: filterProducts(amazonProducts)
-      };
-    } else {
-      return {
-        used: filterProducts(usedProducts),
-        openBox: filterProducts(openBoxProducts),
-        amazon: []
-      };
+  useEffect(() => {
+    if (!query) {
+      setSearchResults({ used: [], openBox: [], amazon: [] });
+      return;
     }
+
+    setLoading(true);
+    searchProducts(query, searchMode)
+      .then(data => {
+        if (searchMode === 'shopping') {
+          setSearchResults({ used: [], openBox: [], amazon: data.amazon || [] });
+        } else {
+          const used = (data.relife || []).filter(p => p.isUsed);
+          const openBox = (data.relife || []).filter(p => !p.isUsed);
+          setSearchResults({ used, openBox, amazon: [] });
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Search API failed', err);
+        setLoading(false);
+      });
   }, [query, searchMode]);
 
   const totalResults = searchResults.used.length + searchResults.openBox.length + searchResults.amazon.length;
@@ -134,9 +130,9 @@ export default function SearchPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                 {searchResults.amazon.map(product => (
                   <AmazonProductCard 
-                    key={product.id} 
+                    key={product._id} 
                     prod={product} 
-                    onClick={() => navigate(`/product/${product.id}`)}
+                    onClick={() => navigate(`/product/${product._id}`)}
                   />
                 ))}
               </div>
@@ -149,7 +145,7 @@ export default function SearchPage() {
               <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-200 pb-2">Used Products</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {searchResults.used.map(product => (
-                  <UsedProductCard key={product.id} product={product} />
+                  <UsedProductCard key={product._id} product={product} />
                 ))}
               </div>
             </div>
@@ -160,7 +156,7 @@ export default function SearchPage() {
               <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-gray-200 pb-2">Open Box Deals</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {searchResults.openBox.map(product => (
-                  <OpenBoxCard key={product.id} product={product} />
+                  <OpenBoxCard key={product._id || product.id} product={product} />
                 ))}
               </div>
             </div>

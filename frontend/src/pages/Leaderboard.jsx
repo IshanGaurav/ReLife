@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Leaf, Trophy, Medal, MapPin, Users, Crown, Gift, GiftIcon, Clock, ArrowUp, ArrowDown } from 'lucide-react';
-import { leaderboardDaily, leaderboardWeekly, leaderboardMonthly, allTimeTopContributors } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getLeaderboardApi } from '../api/client';
 
 export default function Leaderboard() {
   const { period } = useParams();
@@ -10,7 +10,7 @@ export default function Leaderboard() {
   const { user } = useAuth();
   
   const activeTab = period || 'daily';
-  const [filterLevel, setFilterLevel] = useState('city'); // 'national', 'state', 'city'
+  const [filterLevel, setFilterLevel] = useState('national'); // 'national', 'state', 'city'
   const [selectedState, setSelectedState] = useState('Bihar');
   const [selectedCity, setSelectedCity] = useState('Patna');
   const calculateTimeLeft = () => {
@@ -56,15 +56,29 @@ export default function Leaderboard() {
 
   const timeLeft = formatTime(timeDiff);
 
-  const getBaseData = () => {
-    switch(activeTab) {
-      case 'daily': return leaderboardDaily;
-      case 'weekly': return leaderboardWeekly;
-      case 'monthly': return leaderboardMonthly;
-      case 'all-time': return allTimeTopContributors;
-      default: return leaderboardDaily;
-    }
-  };
+  const [leaderboardData, setLeaderboardData] = useState([]);
+
+  useEffect(() => {
+    getLeaderboardApi(activeTab, filterLevel, selectedState, selectedCity).then(data => {
+      if (data && data.success) {
+        const mappedData = data.leaderboard.map(u => ({
+          id: u.userId,
+          userId: u.userId,
+          name: u.name,
+          city: u.city,
+          state: u.state,
+          points: u.greenCredits || 0,
+          itemsRecovered: u.itemsReused || 0,
+          co2Saved: (u.co2Saved || 0) + ' kg',
+          badge: u.badge,
+          avatar: u.profileImage || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`,
+          isCurrentUser: user && user._id === u.userId,
+          rank: u.rank
+        }));
+        setLeaderboardData(mappedData);
+      }
+    }).catch(err => console.error("Leaderboard fetch error:", err));
+  }, [activeTab, filterLevel, selectedState, selectedCity, user]);
 
   const getTierForPoints = (points) => {
     if (points > 5000) return { name: 'Eco Legend', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: '🟡' };
@@ -73,36 +87,7 @@ export default function Leaderboard() {
     return { name: 'Green Starter', color: 'bg-green-100 text-green-800 border-green-200', icon: '🟢' };
   };
 
-  const filteredData = useMemo(() => {
-    let data = [...getBaseData()];
-    
-    if (filterLevel === 'state') {
-      data = data.filter(u => u.state === selectedState);
-    } else if (filterLevel === 'city') {
-      data = data.filter(u => u.city === selectedCity);
-    }
-
-    // Inject the current logged in user so they always appear in rankings for the filtered region
-    if (user && !data.some(u => u.name === user.name)) {
-      data.push({
-        id: 'current_user',
-        name: user.name,
-        city: filterLevel === 'city' ? selectedCity : user.city,
-        state: filterLevel === 'state' ? selectedState : user.state,
-        points: user.credits,
-        itemsRecovered: user.recycled,
-        co2Saved: user.co2,
-        badge: user.badge,
-        avatar: user.avatar,
-        isCurrentUser: true
-      });
-    } else if (user) {
-      const existingUser = data.find(u => u.name === user.name);
-      if (existingUser) existingUser.isCurrentUser = true;
-    }
-
-    return data.sort((a, b) => b.points - a.points).map((u, i) => ({ ...u, rank: i + 1 }));
-  }, [activeTab, filterLevel, selectedState, selectedCity, user]);
+  const filteredData = leaderboardData;
 
   const userRankData = useMemo(() => {
     if (!user) return null;
@@ -134,7 +119,7 @@ export default function Leaderboard() {
       targetRank,
       targetDistance,
       progressPercentage,
-      tier: getTierForPoints(user.credits)
+      tier: getTierForPoints(user.greenCredits || user.credits || 0)
     };
   }, [user, filteredData]);
 
@@ -335,7 +320,7 @@ export default function Leaderboard() {
                   </p>
                   <div className="flex gap-2 mt-2">
                     <span className="text-xs font-bold text-[#16a34a] bg-[#EFFFF3] px-2 py-0.5 rounded-full border border-[#B8E2C4]">
-                      {user.credits} Credits
+                      {user.greenCredits || user.credits || 0} Credits
                     </span>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${userRankData.tier.color}`}>
                       {userRankData.tier.icon} {userRankData.tier.name}

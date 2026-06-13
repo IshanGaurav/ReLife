@@ -8,12 +8,13 @@ export default function UsedProductCard({ product }) {
   const navigate = useNavigate();
   const { cartItems, addToCart } = useCart();
   
-  const isInCart = cartItems.some(item => item.id === product.id);
+  const productId = product._id || product.id;
+  const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
 
   return (
     <div 
-      className="bg-white rounded-lg border border-[#D5D9D9] flex flex-col group cursor-pointer hover:shadow-lg transition-shadow relative"
-      onClick={() => navigate(`/relife/product/${product.id}`)}
+      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col h-full"
+      onClick={() => navigate(`/relife/product/${productId}`)}
     >
       <div className="h-56 bg-white flex items-center justify-center p-6 relative rounded-t-lg border-b border-gray-100">
         <img src={product.image} alt={product.name} className="max-h-full object-contain group-hover:scale-105 transition-transform" />
@@ -37,7 +38,8 @@ export default function UsedProductCard({ product }) {
         <div className="mt-3 flex items-baseline space-x-2">
           <div className="flex items-start">
             <span className="text-xs mt-1">₹</span>
-            <span className="text-2xl font-bold text-[#0F1111]">{product.relifePrice.split('.')[0]}</span>
+            <span className="text-2xl font-bold text-[#0F1111]">{String(product.relifePrice).split('.')[0]}</span>
+            <span className="text-sm align-top mt-1">{String(product.relifePrice).split('.')[1] ? `.${String(product.relifePrice).split('.')[1]}` : ''}</span>
           </div>
           <span className="text-sm text-[#565959] line-through">₹{product.originalPrice}</span>
         </div>
@@ -50,7 +52,7 @@ export default function UsedProductCard({ product }) {
           </div>
           
           {product.passportAvailable ? (
-            <div className="flex items-center text-xs text-blue-700 font-bold bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100" onClick={(e) => { e.stopPropagation(); navigate(`/relife/passport/${product.id}`); }}>
+            <div className="flex items-center text-xs text-blue-700 font-bold bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100" onClick={(e) => { e.stopPropagation(); navigate(`/relife/passport/${productId}`); }}>
               <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Passport Verified
             </div>
           ) : (

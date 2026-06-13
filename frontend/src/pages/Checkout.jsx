@@ -1,14 +1,35 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle, MapPin, CreditCard, Leaf } from 'lucide-react';
+import { CheckCircle, MapPin, CreditCard, Leaf, Loader2 } from 'lucide-react';
+import { placeOrderApi } from '../api/client';
+import { useMode } from '../context/ModeContext';
 
 export default function Checkout() {
   const { cartItems, cartTotal, clearCart } = useCart();
+  const { mode } = useMode();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [shippingData, setShippingData] = useState({ name: 'Amazon User', address: '123 Main St', city: 'Patna', state: 'Bihar', pin: '800020' });
   const [paymentMethod, setPaymentMethod] = useState('card');
+
+  const { updateUser } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [impactResult, setImpactResult] = useState(null);
+
+  const calculateExpectedImpact = () => {
+    return cartItems.reduce((total, item) => {
+      if (item.productType === 'relife') {
+        const name = (item.name || '').toLowerCase();
+        if (name.includes('refurbished')) return total + (350 * item.quantity);
+        if (item.conditionScore && item.conditionScore >= 95) return total + (250 * item.quantity); // Proxy for Open Box
+        return total + (150 * item.quantity);
+      }
+      return total;
+    }, 0);
+  };
+  const expectedCredits = calculateExpectedImpact();
 
   if (cartItems.length === 0 && step !== 4) {
     return (
@@ -19,10 +40,25 @@ export default function Checkout() {
     );
   }
 
-  const handlePlaceOrder = () => {
-    // Generate mock order and clear cart
-    clearCart();
-    setStep(4);
+  const handlePlaceOrder = async () => {
+    try {
+      setIsProcessing(true);
+      const payload = { cartItems, shippingData, paymentMethod };
+      console.log('Checkout payload:', payload);
+      console.log('Cart:', cartItems);
+      console.log('Current Mode:', mode);
+      
+      const data = await placeOrderApi(cartItems, shippingData, paymentMethod);
+      updateUser(data.user);
+      setImpactResult(data.impact);
+      clearCart();
+      setStep(4);
+    } catch (error) {
+      console.error('Order failed:', error);
+      alert(`Failed to place order: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -133,7 +169,13 @@ export default function Checkout() {
                     ))}
                   </div>
                   <div className="mt-6 border-t border-[#D5D9D9] pt-4 flex items-center justify-between">
-                    <button className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-lg px-8 py-3 font-bold shadow-sm text-lg" onClick={handlePlaceOrder}>Place Your Order</button>
+                    <button 
+                      className={`px-8 py-3 rounded-lg font-bold shadow-sm text-lg flex items-center ${isProcessing ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200]'}`} 
+                      onClick={handlePlaceOrder}
+                      disabled={isProcessing}
+                    >
+                      {isProcessing ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...</> : 'Place Your Order'}
+                    </button>
                     <p className="text-[#CC0C39] font-bold text-xl">Order Total: ₹{cartTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
@@ -156,8 +198,13 @@ export default function Checkout() {
                   <Leaf className="w-8 h-8 text-[#16a34a] mr-2" />
                   <h3 className="text-xl font-bold text-[#16a34a]">Sustainability Impact</h3>
                 </div>
-                <p className="text-[#0F1111] font-bold text-lg mb-1">+450 Green Credits Earned</p>
-                <p className="text-[#565959] text-sm">You successfully rescued products from e-waste and helped offset 120kg of CO₂.</p>
+                <p className="text-[#0F1111] font-bold text-lg mb-1">
+                  +{impactResult ? impactResult.creditsEarned : 0} Green Credits Earned
+                </p>
+                <p className="text-[#565959] text-sm">
+                  You successfully rescued products from e-waste and helped offset {impactResult ? impactResult.co2Saved : 0} kg of CO₂
+                  {impactResult && impactResult.wasteDiverted > 0 ? ` while diverting ${impactResult.wasteDiverted} kg of waste` : ''}.
+                </p>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -190,7 +237,7 @@ export default function Checkout() {
             </div>
             <div className="mt-6 bg-[#EFFFF3] border border-[#B8E2C4] rounded p-3">
               <p className="text-xs font-bold text-[#16a34a] flex items-center mb-1"><Leaf className="w-3 h-3 mr-1" /> Expected Impact</p>
-              <p className="text-xs text-[#0F1111]">Earning up to 450 Green Credits upon delivery completion.</p>
+              <p className="text-xs text-[#0F1111]">Earning up to {expectedCredits} Green Credits upon delivery completion.</p>
             </div>
           </div>
         )}

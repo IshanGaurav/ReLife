@@ -1,10 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, Leaf, ShieldCheck, UploadCloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import ReLifeProductCard from '../components/ui/ReLifeProductCard';
-import { openBoxProducts, usedProducts } from '../data/mockData';
+import { getUsedProducts, getOpenBoxProducts } from '../api/client';
 
 export default function ReLifeHome() {
+  const [usedProducts, setUsedProducts] = useState([]);
+  const [openBoxProducts, setOpenBoxProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getUsedProducts(), getOpenBoxProducts()])
+      .then(([usedData, openBoxData]) => {
+        setUsedProducts(usedData);
+        setOpenBoxProducts(openBoxData);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load ReLife products', err);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div className="p-8 text-center min-h-screen">Loading ReLife Marketplace...</div>;
   return (
     <div className="animate-fade-in -mt-8 -mx-4 sm:-mx-6 lg:-mx-8 bg-gray-100 min-h-screen">
       
@@ -56,7 +74,7 @@ export default function ReLifeHome() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {openBoxProducts.slice(0, 5).map((prod) => (
-              <ReLifeProductCard key={prod.id} product={prod} />
+              <ReLifeProductCard key={prod._id || prod.id} product={prod} />
             ))}
           </div>
         </div>
@@ -69,7 +87,7 @@ export default function ReLifeHome() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {usedProducts.slice(0, 5).map((prod) => (
-              <ReLifeProductCard key={prod.id} product={prod} />
+              <ReLifeProductCard key={prod._id || prod.id} product={prod} />
             ))}
           </div>
         </div>
