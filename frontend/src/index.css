@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-amazon-orange: #FF9900;
+  --color-amazon-orange-hover: #e38800;
+  --color-amazon-blue: #232F3E;
+  --color-amazon-light-blue: #37475A;
+  --color-amazon-bg: #eaeded;
+  --color-relife-green: #16a34a;
+  --color-relife-green-hover: #15803d;
+  --color-relife-light-green: #dcfce7;
+  
+  --font-sans: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-amazon-bg);
+  color: var(--color-amazon-blue);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

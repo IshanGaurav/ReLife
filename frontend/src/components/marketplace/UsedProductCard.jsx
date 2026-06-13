@@ -1,0 +1,82 @@
+import React from 'react';
+import { Star, ShieldCheck, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useCart } from '../../context/CartContext';
+import ConditionScoreBadge from '../ui/ConditionScoreBadge';
+
+export default function UsedProductCard({ product }) {
+  const navigate = useNavigate();
+  const { cartItems, addToCart } = useCart();
+  
+  const isInCart = cartItems.some(item => item.id === product.id);
+
+  return (
+    <div 
+      className="bg-white rounded-lg border border-[#D5D9D9] flex flex-col group cursor-pointer hover:shadow-lg transition-shadow relative"
+      onClick={() => navigate(`/relife/product/${product.id}`)}
+    >
+      <div className="h-56 bg-white flex items-center justify-center p-6 relative rounded-t-lg border-b border-gray-100">
+        <img src={product.image} alt={product.name} className="max-h-full object-contain group-hover:scale-105 transition-transform" />
+      </div>
+
+      <div className="p-4 flex flex-col flex-1">
+        <h3 className="text-[#007185] group-hover:text-[#C7511F] font-medium line-clamp-2 leading-snug">{product.name}</h3>
+        
+        {/* Seller Info & Condition */}
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center text-[#FFA41C]">
+            {[...Array(5)].map((_, i) => <Star key={i} className={`w-3.5 h-3.5 ${i < Math.floor(product.sellerRating || 4) ? 'fill-current' : 'text-gray-300 fill-current'}`} />)}
+            <span className="text-[#007185] text-xs ml-1 hover:underline">{product.sellerReviews || '1.2K'}</span>
+          </div>
+        </div>
+        <div className="mt-2 w-full">
+          <ConditionScoreBadge score={product.conditionScore} />
+        </div>
+
+        {/* Pricing */}
+        <div className="mt-3 flex items-baseline space-x-2">
+          <div className="flex items-start">
+            <span className="text-xs mt-1">₹</span>
+            <span className="text-2xl font-bold text-[#0F1111]">{product.relifePrice.split('.')[0]}</span>
+          </div>
+          <span className="text-sm text-[#565959] line-through">₹{product.originalPrice}</span>
+        </div>
+
+        {/* Badges / Distance */}
+        <div className="mt-auto pt-3 space-y-1.5">
+          <div className="flex items-center text-xs text-[#565959] font-medium">
+            <MapPin className="w-3.5 h-3.5 mr-1 text-gray-400" />
+            Ships from {product.distance} away
+          </div>
+          
+          {product.passportAvailable ? (
+            <div className="flex items-center text-xs text-blue-700 font-bold bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100" onClick={(e) => { e.stopPropagation(); navigate(`/relife/passport/${product.id}`); }}>
+              <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Passport Verified
+            </div>
+          ) : (
+            <div className="h-5"></div>
+          )}
+        </div>
+
+        {/* Buy Now Button */}
+        <button 
+          className={`mt-4 w-full rounded-full py-1.5 text-sm font-bold shadow-sm transition-colors flex items-center justify-center ${
+            isInCart 
+              ? 'bg-[#16a34a] text-white hover:bg-green-700 border-transparent' 
+              : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200]'
+          }`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isInCart) {
+              navigate('/cart');
+            } else {
+              addToCart(product);
+            }
+          }}
+        >
+          {isInCart ? '✓ Added to Cart' : 'Add to Cart'}
+        </button>
+      </div>
+    </div>
+  );
+}

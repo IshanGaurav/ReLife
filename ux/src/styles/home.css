@@ -1,0 +1,96 @@
+::-webkit-scrollbar { display: none;}
+
+body { background-color: #faf9f7; color: #1c1a17; }
+        .font-serif { font-family: 'Instrument Serif', serif; }
+        .card-border { border: 1px solid #d8d4ce; }
+        .card-border-graphite { border: 1px solid #807a72; }
+        .pill-btn {
+            border-radius: 9999px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            font-weight: 500;
+            font-family: 'Work Sans', sans-serif;
+            padding: 0.65rem 1.75rem;
+            transition: all 0.25s ease;
+        }
+        .pill-btn-dark {
+            background: #1c1a17;
+            color: #faf9f7;
+        }
+        .pill-btn-dark:hover {
+            background: #807a72;
+        }
+        .pill-btn-outline {
+            background: transparent;
+            color: #1c1a17;
+            border: 1px solid #807a72;
+        }
+        .pill-btn-outline:hover {
+            background: #1c1a17;
+            color: #faf9f7;
+        }
+        .focus-transition img {
+            filter: blur(0.5px);
+            transition: filter 0.6s ease;
+        }
+        .focus-transition:hover img,
+        .focus-transition.focused img {
+            filter: blur(0px);
+        }
+        .savings-bar-fill {
+            transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .inspection-cert {
+            background: #faf9f7;
+            border: 1px solid #807a72;
+            position: relative;
+        }
+        .inspection-cert::before {
+            content: '';
+            position: absolute;
+            top: 6px; left: 6px; right: 6px; bottom: 6px;
+            border: 1px solid #d8d4ce;
+            pointer-events: none;
+        }
+        .grade-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .nav-link {
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #807a72;
+            transition: color 0.2s;
+        }
+        .nav-link:hover { color: #1c1a17; }
+        .amazon-bar {
+            border-top: 1px solid #d8d4ce;
+            letter-spacing: 0.18em;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+        }
+        .strike-retail {
+            text-decoration: line-through;
+            color: #807a72;
+            font-size: 0.78rem;
+            letter-spacing: 0.03em;
+        }
+        .editorial-quote {
+            font-family: 'Instrument Serif', serif;
+            font-style: italic;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fadeInUp { animation: fadeInUp 0.8s ease forwards; }
+        .hero-image-wrap { overflow: hidden; }
+        .hero-image-wrap img {
+            filter: blur(1px);
+            transition: filter 1.2s ease;
+        }
+        .hero-image-wrap.loaded img { filter: blur(0px); }
