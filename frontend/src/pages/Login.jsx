@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Leaf } from 'lucide-react';
+import { Leaf, ShoppingCart, BarChart } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [role, setRole] = useState('user');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -16,11 +17,14 @@ export default function Login() {
       setError('Enter your email or mobile phone number');
       return;
     }
-    
     // Simulate login
-    const success = login(email, password);
+    const success = login(email, password, role);
     if (success) {
-      navigate('/profile');
+      if (role === 'seller') {
+        navigate('/seller/dashboard');
+      } else {
+        navigate('/');
+      }
     } else {
       setError('Invalid credentials');
     }
@@ -34,8 +38,43 @@ export default function Login() {
         </div>
       </Link>
       
+      {/* Role Selection Cards */}
+      <div className="w-[350px] mb-6">
+        <h2 className="text-[13px] font-bold text-gray-700 mb-2">Choose Account Type</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Customer Card */}
+          <div 
+            onClick={() => setRole('user')}
+            className={`cursor-pointer rounded border p-3 flex flex-col items-center text-center transition-all ${role === 'user' ? 'border-[#e77600] bg-[#fffaf5] shadow-sm ring-1 ring-[#e77600]' : 'border-gray-300 hover:bg-gray-50'}`}
+          >
+            <div className={`p-2 rounded-full mb-1 ${role === 'user' ? 'bg-[#FF9900] text-white' : 'bg-gray-200 text-gray-500'}`}>
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            <h3 className={`font-bold text-[13px] ${role === 'user' ? 'text-[#111]' : 'text-gray-600'}`}>Customer</h3>
+          </div>
+          
+          {/* Seller Card */}
+          <div 
+            onClick={() => setRole('seller')}
+            className={`cursor-pointer rounded border p-3 flex flex-col items-center text-center transition-all relative ${role === 'seller' ? 'border-[#0066c0] bg-[#f0f8ff] shadow-sm ring-1 ring-[#0066c0]' : 'border-gray-300 hover:bg-gray-50'}`}
+          >
+            <div className={`p-2 rounded-full mb-1 ${role === 'seller' ? 'bg-[#0066c0] text-white' : 'bg-gray-200 text-gray-500'}`}>
+              <BarChart className="w-5 h-5" />
+            </div>
+            <h3 className={`font-bold text-[13px] ${role === 'seller' ? 'text-[#111]' : 'text-gray-600'}`}>Seller</h3>
+          </div>
+        </div>
+      </div>
+      
       <div className="w-[350px] border border-[#D5D9D9] rounded p-6 shadow-sm">
-        <h1 className="text-[28px] font-normal mb-4 text-[#111111]">Sign in</h1>
+        <h1 className="text-[28px] font-normal mb-2 text-[#111111]">
+          {role === 'user' ? 'Sign in to Amazon ReLife' : 'Sign in to Seller Copilot'}
+        </h1>
+        <p className="text-[13px] text-gray-600 mb-4 leading-relaxed">
+          {role === 'user' 
+            ? 'Shop products, access ReLife marketplace, earn Green Credits, manage orders, and use AI Purchase Assistant.' 
+            : 'Manage products, optimize listings, and grow your business.'}
+        </p>
         
         {error && (
           <div className="text-[#C40000] text-sm mb-4 font-bold flex items-center">

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Search, ShoppingCart, MapPin, Menu, ChevronDown, Leaf, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, ShoppingCart, MapPin, Menu, ChevronDown, Leaf, User, Clock } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getRelifeAlternative, getAmazonAlternative } from '../utils/productMatcher';
+import { amazonProducts, openBoxProducts, usedProducts } from '../data/mockData';
 
 export default function Navbar() {
   const { mode, toggleMode } = useMode();
@@ -13,6 +14,121 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const saved = localStorage.getItem('recentSearches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const searchContainerRef = useRef(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      
+      const query = searchQuery.toLowerCase().trim();
+      let inventory = mode === 'shopping' ? amazonProducts : [...openBoxProducts, ...usedProducts];
+      
+      const results = inventory.filter(item => {
+        const textToSearch = [
+          item.name,
+          item.brand,
+          item.category,
+          item.description,
+          ...(item.features || [])
+        ].join(' ').toLowerCase();
+        
+        return textToSearch.includes(query);
+      });
+      
+      setSearchResults(results.slice(0, 8)); // limit to 8 results
+      setHighlightedIndex(-1);
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery, mode]);
+
+  const saveRecentSearch = (query) => {
+    if (!query.trim()) return;
+    const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem('recentSearches', JSON.stringify(updated));
+  };
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      saveRecentSearch(searchQuery.trim());
+      setIsDropdownOpen(false);
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}&mode=${mode}`);
+    }
+  };
+
+  const navigateToProduct = (item) => {
+    saveRecentSearch(searchQuery.trim() || item.name);
+    setIsDropdownOpen(false);
+    if (mode === 'shopping') {
+      navigate(`/product/${item.id}`);
+    } else {
+      navigate(`/relife/product/${item.id}`);
+    }
+    setSearchQuery("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (!isDropdownOpen) {
+      if (e.key === "Enter") handleSearch();
+      return;
+    }
+
+    const maxIndex = searchQuery.trim() ? searchResults.length - 1 : recentSearches.length - 1;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < maxIndex ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlightedIndex >= 0) {
+        if (searchQuery.trim()) {
+          if (searchResults[highlightedIndex]) {
+            navigateToProduct(searchResults[highlightedIndex]);
+          }
+        } else {
+          if (recentSearches[highlightedIndex]) {
+            setSearchQuery(recentSearches[highlightedIndex]);
+            setIsDropdownOpen(false);
+          }
+        }
+      } else {
+        handleSearch();
+      }
+    } else if (e.key === "Escape") {
+      setIsDropdownOpen(false);
+    }
+  };
 
   const handleModeSwitch = (targetMode) => {
     if (mode === targetMode) return;
@@ -68,19 +184,92 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex-1 hidden md:flex items-center h-10 rounded-md overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#FF9900]">
-          <div className="bg-gray-100 text-gray-700 text-xs flex items-center px-2 py-3 border-r border-gray-300 cursor-pointer hover:bg-gray-200">
-            All <ChevronDown className="w-3 h-3 ml-1" />
+        {/* Search Bar Container */}
+        <div ref={searchContainerRef} className="flex-1 hidden md:flex flex-col relative">
+          <div className="flex items-center h-10 rounded-md overflow-hidden bg-white focus-within:ring-2 focus-within:ring-[#FF9900]">
+            <div className="bg-gray-100 text-gray-700 text-xs flex items-center px-2 py-3 border-r border-gray-300 cursor-pointer hover:bg-gray-200">
+              All <ChevronDown className="w-3 h-3 ml-1" />
+            </div>
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsDropdownOpen(true);
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              onKeyDown={handleKeyDown}
+              className="flex-1 h-full px-4 text-black outline-none" 
+              placeholder={mode === 'shopping' ? 'Search Amazon Products' : 'Search ReLife Products, Open Box, Refurbished Items'}
+            />
+            <button 
+              onClick={handleSearch}
+              className="bg-[#F3A847] hover:bg-[#e39c42] px-4 h-full flex items-center justify-center transition-colors"
+            >
+              <Search className="w-6 h-6 text-[#111111]" />
+            </button>
           </div>
-          <input 
-            type="text" 
-            className="flex-1 h-full px-4 text-black outline-none" 
-            placeholder={mode === 'shopping' ? 'Search Amazon.in' : 'Search ReLife Products, Open Box, Refurbished Items'}
-          />
-          <button className="bg-[#F3A847] hover:bg-[#e39c42] px-4 h-full flex items-center justify-center transition-colors">
-            <Search className="w-6 h-6 text-[#111111]" />
-          </button>
+
+          {/* Autocomplete Dropdown */}
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 overflow-hidden z-50 max-h-96 overflow-y-auto">
+              {!searchQuery.trim() ? (
+                // Recent Searches
+                recentSearches.length > 0 ? (
+                  <div className="py-2">
+                    <div className="px-4 py-1 text-xs font-bold text-gray-500 uppercase tracking-wider">Recent Searches</div>
+                    {recentSearches.map((term, index) => (
+                      <div 
+                        key={index}
+                        onClick={() => {
+                          setSearchQuery(term);
+                          setIsDropdownOpen(false);
+                        }}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        className={`flex items-center px-4 py-2 cursor-pointer text-sm text-black ${highlightedIndex === index ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                      >
+                        <Clock className="w-4 h-4 mr-3 text-gray-400" />
+                        <span>{term}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null
+              ) : searchResults.length > 0 ? (
+                // Search Results
+                <div className="py-2">
+                  {searchResults.map((item, index) => (
+                    <div 
+                      key={item.id}
+                      onClick={() => navigateToProduct(item)}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      className={`flex items-center px-4 py-2 cursor-pointer border-b last:border-b-0 border-gray-100 ${highlightedIndex === index ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                    >
+                      <img src={item.image} alt={item.name} className="w-10 h-10 object-cover rounded mr-3" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-black truncate">{item.name}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          <span className="capitalize">{item.category}</span>
+                          {item.brand && ` • ${item.brand}`}
+                          {mode === 'relife' && (
+                            <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-800 text-[10px] rounded font-bold">
+                              {item.conditionScore ? 'Used' : 'Open Box'}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                // No Results
+                <div className="px-4 py-6 text-center text-gray-500">
+                  <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No products found for "{searchQuery}"</p>
+                  <p className="text-xs mt-1">Try checking your spelling or use more general terms</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Language */}

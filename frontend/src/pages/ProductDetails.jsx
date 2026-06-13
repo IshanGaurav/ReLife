@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, MapPin, Leaf, CheckCircle, ChevronRight, Star, Clock, Wrench, User } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { ShieldCheck, MapPin, Leaf, CheckCircle, ChevronRight, Star, Clock, Wrench, User, X } from 'lucide-react';
 import { usedProducts, openBoxProducts } from '../data/mockData';
 import { useCart } from '../context/CartContext';
 import { useMode } from '../context/ModeContext';
@@ -8,10 +8,25 @@ import { useMode } from '../context/ModeContext';
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { cartItems, addToCart } = useCart();
   const { mode, setMode } = useMode();
   const [product, setProduct] = useState(null);
   const [isUsed, setIsUsed] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const unitsSectionRef = useRef(null);
+
+  const calculateSavings = (amazonPrice, relifePrice) => {
+    try {
+      const aPrice = parseFloat(amazonPrice.replace(/,/g, ''));
+      const rPrice = parseFloat(relifePrice.replace(/,/g, ''));
+      if (aPrice && rPrice) {
+        return (aPrice - rPrice).toLocaleString('en-IN');
+      }
+    } catch(e) {}
+    return '0';
+  };
 
   useEffect(() => {
     if (mode !== 'relife') setMode('relife');
@@ -19,20 +34,39 @@ export default function ProductDetails() {
 
   useEffect(() => {
     // Find product in mock data
-    const used = usedProducts.find(p => p.id === id);
-    if (used) {
-      setProduct(used);
-      setIsUsed(true);
-      return;
+    let foundProduct = usedProducts.find(p => p.id === id);
+    let used = true;
+    
+    if (!foundProduct) {
+      foundProduct = openBoxProducts.find(p => p.id === id);
+      used = false;
     }
-    const ob = openBoxProducts.find(p => p.id === id);
-    if (ob) {
-      setProduct(ob);
-      setIsUsed(false);
-    }
-  }, [id]);
 
-  if (!product) return <div className="p-12 text-center font-bold">Product not found.</div>;
+    if (foundProduct) {
+      setProduct(foundProduct);
+      setIsUsed(used);
+      
+      let initialUnit = null;
+      if (location.state?.recommendedUnitId && foundProduct.availableUnits) {
+        initialUnit = foundProduct.availableUnits.find(u => u.id === location.state.recommendedUnitId);
+      }
+      if (!initialUnit && foundProduct.availableUnits?.length > 0) {
+        // Condition-First ranking logic: default to highest condition score unit
+        initialUnit = foundProduct.availableUnits.reduce((best, curr) => (curr.conditionScore > best.conditionScore ? curr : best), foundProduct.availableUnits[0]);
+      }
+      if (initialUnit) setSelectedUnit(initialUnit);
+    }
+  }, [id, location.state]);
+
+  useEffect(() => {
+    if (location.state?.recommendedUnitId && unitsSectionRef.current && selectedUnit?.id === location.state.recommendedUnitId) {
+      setTimeout(() => {
+        unitsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [location.state, selectedUnit]);
+
+  if (!product || !selectedUnit) return <div className="p-12 text-center font-bold">Product not found.</div>;
 
   return (
     <div className="max-w-7xl mx-auto bg-white p-4 sm:p-6 lg:p-8 animate-fade-in border border-[#D5D9D9] rounded-sm mt-4">
@@ -104,7 +138,7 @@ export default function ProductDetails() {
             )}
             <div className="flex items-end">
               <span className="text-sm text-[#CC0C39] font-bold mt-1">₹</span>
-              <span className="text-3xl font-medium text-[#CC0C39]">{product.relifePrice.split('.')[0]}</span>
+              <span className="text-3xl font-medium text-[#CC0C39]">{selectedUnit.price.split('.')[0]}</span>
             </div>
             <div className="text-sm text-[#565959] mt-1">
               Original Price: <span className="line-through">₹{product.originalPrice}</span>
@@ -113,7 +147,7 @@ export default function ProductDetails() {
               {(() => {
                 try {
                   const orig = parseFloat(product.originalPrice.replace(/,/g, ''));
-                  const relife = parseFloat(product.relifePrice.replace(/,/g, ''));
+                  const relife = parseFloat(selectedUnit.price.replace(/,/g, ''));
                   if (orig && relife) {
                     const saved = orig - relife;
                     const percent = Math.round((saved / orig) * 100);
@@ -132,7 +166,7 @@ export default function ProductDetails() {
               <div className="border border-[#D5D9D9] rounded p-3">
                 <p className="text-xs text-[#565959] uppercase font-bold mb-1">Condition Score</p>
                 <div className="flex items-center">
-                  <span className="text-3xl font-extrabold text-[#0F1111]">{product.conditionScore}</span>
+                  <span className="text-3xl font-extrabold text-[#0F1111]">{selectedUnit.conditionScore}</span>
                   <span className="text-lg text-[#565959] ml-1">/100</span>
                 </div>
               </div>
@@ -161,37 +195,115 @@ export default function ProductDetails() {
               </div>
             </div>
           </div>
+          
+          {/* New Product vs Recommended Unit Comparison */}
+          {location.state?.amazonProduct && location.state?.recommendedUnitId === selectedUnit.id && (
+            <div className="py-4 border-t border-[#D5D9D9] mb-4">
+              <h3 className="font-bold text-[#0F1111] mb-3">New Product vs Recommended ReLife Unit</h3>
+              <div className="grid grid-cols-2 gap-0 border border-[#D5D9D9] rounded-lg overflow-hidden text-sm text-[#0F1111] shadow-sm">
+                <div className="bg-gray-50 p-4 border-r border-[#D5D9D9] flex flex-col items-center text-center">
+                  <div className="font-bold mb-2 text-[#565959]">New Amazon Product</div>
+                  <div className="text-2xl font-bold text-[#0F1111] mb-4">₹{location.state.amazonProduct.price}</div>
+                  <div className="text-xs text-[#565959] space-y-2 w-full mt-2 pt-3 border-t border-[#D5D9D9]">
+                    <div className="flex justify-between border-b border-[#D5D9D9]/50 pb-1"><span>Condition</span> <span className="font-bold text-[#0F1111]">New</span></div>
+                    <div className="flex justify-between border-b border-[#D5D9D9]/50 pb-1"><span>CO₂ Saved</span> <span>0 kg</span></div>
+                    <div className="flex justify-between"><span>Life Extension</span> <span>N/A</span></div>
+                  </div>
+                </div>
+                <div className="bg-[#FF9900]/10 p-4 flex flex-col items-center text-center relative border border-[#e77600] m-0">
+                  <div className="absolute top-0 left-0 w-full h-1 bg-[#FF9900]"></div>
+                  <div className="font-bold text-[#e77600] mb-2 flex items-center justify-center w-full">🏆 AI ReLife Unit</div>
+                  <div className="text-2xl font-bold text-[#B12704] mb-4">₹{selectedUnit.price}</div>
+                  <div className="text-xs text-[#565959] space-y-2 w-full mt-2 pt-3 border-t border-[#e77600]/30">
+                    <div className="flex justify-between font-bold text-[#16a34a] border-b border-[#e77600]/30 pb-1 text-[13px]">
+                      <span>Savings</span> <span>₹{calculateSavings(location.state.amazonProduct.price, selectedUnit.price)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#e77600]/30 pb-1"><span>Condition</span> <span className="font-bold text-[#0F1111]">{selectedUnit.conditionScore}/100</span></div>
+                    <div className="flex justify-between border-b border-[#e77600]/30 pb-1"><span>CO₂ Saved</span> <span className="font-bold text-[#16a34a]">{(selectedUnit.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 100) + 10}kg</span></div>
+                    <div className="flex justify-between"><span>Life Extension</span> <span className="font-bold text-[#16a34a]">+{(((selectedUnit.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 50) / 10) + 1).toFixed(1)} Yrs</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Available Units Selection */}
+          <div className="py-4 border-t border-[#D5D9D9]" ref={unitsSectionRef}>
+            
+            {location.state?.recommendedUnitId === selectedUnit.id && (
+              <div className="mb-4 bg-[#FF9900]/10 border border-[#e77600] rounded-lg p-4 shadow-sm animate-fade-in">
+                <div className="flex items-center text-[#B12704] font-bold mb-2">
+                  <span className="mr-2 text-xl">🏆</span> AI Recommended Unit
+                </div>
+                <div className="text-sm text-[#0F1111]">
+                  This unit is selected as your best option due to:
+                  <ul className="list-disc pl-5 mt-2 space-y-1 text-[#565959]">
+                    <li><strong className="text-[#0F1111]">Highest Condition Score</strong> ({selectedUnit.conditionScore}/100)</li>
+                    {location.state.amazonProduct && <li><strong className="text-[#0F1111]">Price Advantage</strong> (₹{calculateSavings(location.state.amazonProduct.price, selectedUnit.price)} cheaper than new)</li>}
+                    <li><strong className="text-[#0F1111]">{selectedUnit.warrantyMonths} Months Warranty</strong> from {selectedUnit.sellerName}</li>
+                    <li><strong className="text-[#0F1111]">Excellent Green Score</strong> with high sustainability impact</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-bold text-[#0F1111]">Available Units</h3>
+              <button 
+                onClick={() => setShowCompareModal(true)}
+                className="text-sm text-[#007185] hover:text-[#C7511F] hover:underline bg-transparent p-0"
+              >
+                Compare Available Units
+              </button>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {product.availableUnits.map((unit) => (
+                <div 
+                  key={unit.id}
+                  onClick={() => setSelectedUnit(unit)}
+                  className={`border rounded-md p-2 cursor-pointer transition-all min-w-[120px] text-center ${
+                    selectedUnit.id === unit.id 
+                    ? 'border-[#e77600] bg-[#fffaf5] ring-1 ring-[#e77600] shadow-sm' 
+                    : 'border-[#D5D9D9] hover:bg-gray-50'
+                  }`}
+                >
+                  <p className="font-bold text-[13px] text-[#0F1111]">[{unit.conditionScore}/100 {unit.conditionLabel}]</p>
+                  <p className="text-sm text-[#B12704] font-bold">₹{unit.price}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Right: Purchase Panel */}
         <div className="md:col-span-3">
           <div className="border border-[#D5D9D9] rounded-lg p-4 sticky top-24 bg-white shadow-sm">
-            <h4 className="font-bold text-[#0F1111] mb-2 text-2xl">₹{product.relifePrice}</h4>
+            <h4 className="font-bold text-[#0F1111] mb-2 text-2xl">₹{selectedUnit.price}</h4>
             <p className="text-sm text-[#007185] flex items-center mb-4 cursor-pointer hover:text-[#C7511F] hover:underline">
               <MapPin className="w-4 h-4 mr-1 text-[#0F1111]" /> Deliver to Patna 800020
             </p>
             <h5 className="text-[#007185] font-bold text-lg mb-2">In stock</h5>
             <button 
               className={`w-full rounded-full py-2.5 text-sm font-bold shadow-sm mb-2 transition-colors flex items-center justify-center ${
-                cartItems.some(item => item.id === product.id)
+                cartItems.some(item => item.id === selectedUnit.id)
                   ? 'bg-[#16a34a] text-white hover:bg-green-700 border-transparent' 
                   : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200]'
               }`}
               onClick={() => {
-                if (cartItems.some(item => item.id === product.id)) {
+                if (cartItems.some(item => item.id === selectedUnit.id)) {
                   navigate('/cart');
                 } else {
-                  addToCart(product);
+                  addToCart({ ...product, ...selectedUnit });
                 }
               }}
             >
-              {cartItems.some(item => item.id === product.id) ? '✓ Added to Cart' : 'Add to Cart'}
+              {cartItems.some(item => item.id === selectedUnit.id) ? '✓ Added to Cart' : 'Add to Cart'}
             </button>
             <button 
               className="w-full bg-[#FFA41C] hover:bg-[#FA8900] border border-[#FF8F00] rounded-full py-2.5 text-sm font-bold shadow-sm"
               onClick={() => {
-                if (!cartItems.some(item => item.id === product.id)) {
-                  addToCart(product);
+                if (!cartItems.some(item => item.id === selectedUnit.id)) {
+                  addToCart({ ...product, ...selectedUnit });
                 }
                 navigate('/checkout');
               }}
@@ -200,16 +312,14 @@ export default function ProductDetails() {
             </button>
             <div className="mt-4 text-xs text-[#565959] space-y-1 border-b border-[#D5D9D9] pb-4">
               <div className="flex justify-between"><span>Ships from</span> <span>Amazon ReLife Fulfillment</span></div>
-              <div className="flex justify-between"><span>Sold by</span> <span>{isUsed ? 'ReLife Certified Seller' : 'Amazon Warehouse'}</span></div>
-              {isUsed && product.sellerRating && (
-                <div className="flex justify-between"><span>Seller Rating</span> <span>{product.sellerRating} / 5</span></div>
+              <div className="flex justify-between"><span>Sold by</span> <span className="font-bold text-[#007185] cursor-pointer hover:underline">{selectedUnit.sellerName}</span></div>
+              {selectedUnit.sellerRating && (
+                <div className="flex justify-between"><span>Seller Rating</span> <span>{selectedUnit.sellerRating} / 5</span></div>
               )}
-              {isUsed && (
-                <div className="flex justify-between"><span>Seller Location</span> <span>Patna, Bihar</span></div>
+              {selectedUnit.distance && (
+                <div className="flex justify-between"><span>Distance</span> <span>{selectedUnit.distance}</span></div>
               )}
-              {product.distance && (
-                <div className="flex justify-between"><span>Distance</span> <span>{product.distance}</span></div>
-              )}
+              <div className="flex justify-between"><span>Warranty</span> <span>{selectedUnit.warrantyMonths} Months</span></div>
             </div>
             <button className="w-full mt-4 border border-[#D5D9D9] bg-white hover:bg-gray-50 text-[#0F1111] py-1.5 rounded-md text-sm shadow-sm transition-all text-left px-3">
               Add to Wishlist
@@ -237,8 +347,8 @@ export default function ProductDetails() {
             <p className="text-sm text-[#0F1111] mb-4">This product has been visually inspected by Amazon ReLife Generative AI. The condition score is an objective measurement based on 14 cosmetic and functional checkpoints.</p>
             <ul className="list-disc pl-5 text-sm text-[#0F1111] space-y-2">
               <li><strong>Display:</strong> No visible scratches under normal lighting.</li>
-              <li><strong>Enclosure:</strong> Minor micro-abrasions on the bottom edge (typical of {product.conditionScore} condition).</li>
-              <li><strong>Battery:</strong> Tested and verified to hold at least 80% of original capacity.</li>
+              <li><strong>Enclosure:</strong> {selectedUnit.inspectionSummary}</li>
+              <li><strong>Battery:</strong> Tested and verified to hold {selectedUnit.batteryHealth} capacity.</li>
               <li><strong>Functionality:</strong> Fully functional. Device has been cleared of all personal data.</li>
             </ul>
           </div>
@@ -286,6 +396,64 @@ export default function ProductDetails() {
           </div>
         </div>
       </div>
+      {/* Compare Modal */}
+      {showCompareModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-fade-in mx-4">
+            <div className="flex justify-between items-center p-4 border-b border-[#D5D9D9] bg-gray-50">
+              <h2 className="text-lg font-bold text-[#0F1111]">Compare Available Units</h2>
+              <button onClick={() => setShowCompareModal(false)} className="text-gray-500 hover:text-black">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 border-b border-[#D5D9D9]">
+                    <th className="p-3 font-bold text-gray-700">Condition</th>
+                    <th className="p-3 font-bold text-gray-700">Price</th>
+                    <th className="p-3 font-bold text-gray-700">Battery Health</th>
+                    <th className="p-3 font-bold text-gray-700">Warranty</th>
+                    <th className="p-3 font-bold text-gray-700">Seller</th>
+                    <th className="p-3 font-bold text-gray-700 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.availableUnits.map(unit => (
+                    <tr key={unit.id} className={`border-b border-gray-200 hover:bg-gray-50 ${selectedUnit.id === unit.id ? 'bg-[#fffaf5]' : ''}`}>
+                      <td className="p-3">
+                        <div className="font-bold text-[#0F1111]">{unit.conditionScore}/100</div>
+                        <div className="text-xs text-gray-500">{unit.conditionLabel}</div>
+                      </td>
+                      <td className="p-3 font-bold text-[#B12704]">₹{unit.price}</td>
+                      <td className="p-3">{unit.batteryHealth}</td>
+                      <td className="p-3">{unit.warrantyMonths} Months</td>
+                      <td className="p-3">
+                        <div>{unit.sellerName}</div>
+                        <div className="text-xs text-[#007185] flex items-center mt-1">
+                          <Star className="w-3 h-3 fill-current mr-0.5 text-[#FFA41C]"/> {unit.sellerRating}
+                        </div>
+                      </td>
+                      <td className="p-3 text-center">
+                        <button 
+                          onClick={() => {
+                            setSelectedUnit(unit);
+                            setShowCompareModal(false);
+                          }}
+                          className={`px-4 py-1.5 text-xs rounded-full font-bold border transition-colors ${selectedUnit.id === unit.id ? 'bg-[#FF9900] text-black border-[#FF9900]' : 'bg-white hover:bg-gray-50 text-[#0F1111] border-[#D5D9D9] shadow-sm'}`}
+                        >
+                          {selectedUnit.id === unit.id ? 'Selected' : 'Select'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

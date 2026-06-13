@@ -1,4 +1,4 @@
-export const usedProducts = [
+const rawUsedProducts = [
   {
     id: 'u1',
     name: 'Apple iPhone 13 Pro (256GB) - Sierra Blue',
@@ -141,7 +141,7 @@ export const usedProducts = [
   }
 ];
 
-export const openBoxProducts = [
+const rawOpenBoxProducts = [
   {
     id: 'o1',
     name: 'Apple MacBook Air M2 (2022) 8GB RAM, 256GB SSD',
@@ -274,7 +274,104 @@ export const openBoxProducts = [
   }
 ];
 
+const getConditionLabel = (score) => {
+  if (score >= 95) return 'Premium';
+  if (score >= 90) return 'Excellent';
+  if (score >= 80) return 'Very Good';
+  if (score >= 70) return 'Good';
+  return 'Acceptable';
+};
+
+const sellerNames = ['TechRenew Electronics', 'ReLife Certified Seller', 'Gadget Restore', 'GreenTech Store', 'Amazon Warehouse'];
+const inspectionSummaries = [
+  'Minor micro-abrasions on the bottom edge.',
+  'Display has no visible scratches. Fully tested.',
+  'Battery replaced with OEM part. Minor scuffs on casing.',
+  'Pristine condition. Looks and feels like new.',
+  'Noticeable wear on corners, screen is flawless.'
+];
+
+const generateUnitsForProduct = (baseProduct, isUsed) => {
+  const basePriceStr = baseProduct.relifePrice.replace(/,/g, '');
+  const basePrice = parseInt(basePriceStr, 10);
+  const baseScore = baseProduct.conditionScore;
+  
+  const numUnits = Math.floor(Math.random() * 3) + 4; // 4 to 6 units
+  const units = [];
+  
+  for (let i = 0; i < numUnits; i++) {
+    // Generate realistic variations
+    let scoreOffset = 0;
+    if (i === 0) scoreOffset = Math.floor(Math.random() * 3); // Slightly better
+    else if (i === 1) scoreOffset = 0; // Same as base
+    else scoreOffset = -Math.floor(Math.random() * 15) - 2; // Worse
+    
+    let score = baseScore + scoreOffset;
+    if (score > 100) score = 100;
+    if (score < 60) score = 60 + Math.floor(Math.random() * 10);
+    
+    // Price variation based on score difference
+    const scoreDiff = score - baseScore;
+    const priceMultiplier = 1 + (scoreDiff * 0.012); // 1.2% change per score point
+    const price = Math.round((basePrice * priceMultiplier) / 10) * 10;
+    
+    // Format price back to comma string
+    const formattedPrice = price.toLocaleString('en-IN');
+    
+    units.push({
+      id: `${baseProduct.id}-unit-${i}`,
+      conditionScore: score,
+      conditionLabel: getConditionLabel(score),
+      price: formattedPrice,
+      batteryHealth: isUsed ? `${Math.floor(Math.random() * 15) + 85}%` : '100%',
+      sellerName: sellerNames[Math.floor(Math.random() * sellerNames.length)],
+      sellerRating: (Math.random() * 1 + 4).toFixed(1),
+      warrantyMonths: score >= 90 ? 12 : 6,
+      inspectionSummary: inspectionSummaries[Math.floor(Math.random() * inspectionSummaries.length)],
+      passportId: `pass-${Math.floor(Math.random() * 90000) + 10000}`,
+      distance: `${(Math.random() * 15 + 1).toFixed(1)} km`
+    });
+  }
+  
+  // Sort descending by score
+  units.sort((a, b) => b.conditionScore - a.conditionScore);
+  
+  return units;
+};
+
+export const usedProducts = rawUsedProducts.map(p => ({
+  ...p,
+  availableUnits: generateUnitsForProduct(p, true)
+}));
+
+export const openBoxProducts = rawOpenBoxProducts.map(p => ({
+  ...p,
+  availableUnits: generateUnitsForProduct(p, false)
+}));
+
 export const amazonProducts = [
+  {
+    id: 'a-shoe-1',
+    name: 'Nike Air Max 270 Men\'s Running Shoes',
+    price: '12,995.00',
+    oldPrice: '15,995.00',
+    rating: 4.6,
+    reviews: '8,245',
+    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=600&auto=format&fit=crop',
+    description: 'Boasting the first-ever Max Air unit created specifically for Nike Sportswear, the Nike Air Max 270 delivers visible air under every step.',
+    category: 'Shoes',
+    brand: 'Nike',
+    features: [
+      'Large Max Air unit delivers responsive cushioning.',
+      'Neoprene stretch bootie construction delivers a snug fit.',
+      '3-piece midsole offers durability and a smooth transition.'
+    ],
+    specs: {
+      'Brand': 'Nike',
+      'Outer Material': 'Synthetic',
+      'Closure': 'Lace-Up'
+    }
+  },
   {
     id: 'a1',
     name: 'Echo Dot (5th Gen, 2022 release) | Smart speaker with Alexa | Charcoal',

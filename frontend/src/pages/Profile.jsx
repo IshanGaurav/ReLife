@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Leaf, Award, Recycle, ShoppingBag, Truck, Calendar, TreePine, Wind, Zap, Trophy } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Leaf, Award, Recycle, ShoppingBag, Truck, Calendar, TreePine, Wind, Zap, Trophy, Sparkles, Ruler, ChevronRight } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { transactionHistory, purchaseHistory, sellingHistory, sustainabilityChartData } from '../data/mockData';
 
 export default function Profile() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const navigate = useNavigate();
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -169,9 +170,19 @@ export default function Profile() {
                       <h4 className="font-bold text-[#111] text-lg">{order.title}</h4>
                       <p className="text-[#16a34a] font-bold text-sm flex items-center mt-1"><Truck className="w-4 h-4 mr-1"/> {order.status}</p>
                     </div>
-                    <button className="bg-[#f0c14b] border border-[#a88734] hover:bg-[#f4d078] rounded py-1 px-4 text-sm text-[#111] shadow-sm">
-                      View Digital Passport
-                    </button>
+                    <div className="flex items-center space-x-3">
+                      {(order.title.toLowerCase().includes('shoe') || order.title.toLowerCase().includes('shirt') || order.title.toLowerCase().includes('nike') || order.title.toLowerCase().includes('jacket')) && (
+                        <button 
+                          onClick={() => navigate('/profile/purchase-assistant')}
+                          className="bg-white border border-[#14b8a6] hover:bg-[#f0fdfa] text-[#0d9488] rounded py-1 px-3 text-sm font-bold shadow-sm flex items-center transition-colors"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 mr-1" /> View AI Fit Analysis
+                        </button>
+                      )}
+                      <button className="bg-[#f0c14b] border border-[#a88734] hover:bg-[#f4d078] rounded py-1 px-4 text-sm text-[#111] shadow-sm">
+                        View Digital Passport
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -239,6 +250,48 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* AI Purchase Assistant Premium Action Cards */}
+      <div className="mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <Sparkles className="w-5 h-5 text-[#14b8a6] mr-2" /> AI Shopping Assistant
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div 
+            onClick={() => navigate('/profile/fit-profile')}
+            className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center text-gray-900 font-bold text-lg mb-2">
+                <Ruler className="w-5 h-5 mr-2 text-gray-600" /> Fit Profile
+              </div>
+              <p className="text-sm text-gray-600 mb-4 pr-4 leading-relaxed">
+                Manage your measurements and preferences to receive accurate size recommendations.
+              </p>
+            </div>
+            <button className="text-sm font-bold text-gray-900 group-hover:text-black transition-colors flex items-center mt-2">
+              Manage Fit Profile <ChevronRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+
+          <div 
+            onClick={() => navigate('/profile/purchase-assistant')}
+            className="bg-gradient-to-br from-[#14b8a6]/10 to-transparent border border-[#14b8a6]/20 rounded-xl p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer group flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center text-gray-900 font-bold text-lg mb-2">
+                <Sparkles className="w-5 h-5 mr-2 text-[#14b8a6]" /> AI Purchase Assistant
+              </div>
+              <p className="text-sm text-gray-600 mb-4 pr-4 leading-relaxed">
+                View your size recommendations, return-risk insights, brand preferences, and sustainability impact.
+              </p>
+            </div>
+            <button className="text-sm font-bold text-[#0d9488] group-hover:text-teal-700 transition-colors flex items-center mt-2">
+              Open Dashboard <ChevronRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row gap-8">
         {/* Sidebar Navigation */}
         <div className="w-full md:w-64 flex-shrink-0">
@@ -272,6 +325,19 @@ export default function Profile() {
               className={`w-full text-left px-4 py-3 text-sm font-medium border-t border-gray-100 border-l-4 transition-colors ${activeTab === 'settings' ? 'border-[#e77600] bg-gray-50 text-[#111]' : 'border-transparent text-[#007185] hover:bg-gray-50 hover:text-[#C7511F]'}`}
             >
               Account Settings
+            </button>
+            <div className="border-t border-[#D5D9D9] mt-2 mb-2"></div>
+            <button 
+              onClick={() => navigate('/profile/purchase-assistant')}
+              className="w-full text-left px-4 py-3 text-sm font-bold border-transparent text-[#14b8a6] hover:bg-teal-50 hover:text-teal-700 flex items-center justify-between"
+            >
+              AI Purchase Assistant <Sparkles className="w-4 h-4 ml-2" />
+            </button>
+            <button 
+              onClick={() => navigate('/profile/fit-profile')}
+              className="w-full text-left px-4 py-3 text-sm font-medium border-t border-gray-100 border-transparent text-[#007185] hover:bg-gray-50 hover:text-[#C7511F]"
+            >
+              Your Fit Profile
             </button>
           </div>
         </div>

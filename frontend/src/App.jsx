@@ -1,6 +1,14 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import SellerLayout from './components/seller/SellerLayout';
+import SellerDashboard from './pages/seller/SellerDashboard';
+import SellerProducts from './pages/seller/SellerProducts';
+import SellerSEO from './pages/seller/SellerSEO';
+import SellerReviews from './pages/seller/SellerReviews';
+import SellerCompetitors from './pages/seller/SellerCompetitors';
+import SellerRecommendations from './pages/seller/SellerRecommendations';
+import SellerSettings from './pages/seller/SellerSettings';
 import ReLifeHome from './pages/ReLifeHome';
 import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
@@ -9,6 +17,8 @@ import ProductDetails from './pages/ProductDetails';
 import Passport from './pages/Passport';
 import Credits from './pages/Credits';
 import Profile from './pages/Profile';
+import FitProfilePage from './pages/profile/FitProfilePage';
+import PurchaseAssistantDashboard from './pages/profile/PurchaseAssistantDashboard';
 import AmazonHome from './pages/AmazonHome';
 import AmazonProductDetails from './pages/AmazonProductDetails';
 import Cart from './pages/Cart';
@@ -16,18 +26,21 @@ import Checkout from './pages/Checkout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Leaderboard from './pages/Leaderboard';
+import SearchPage from './pages/SearchPage';
 import { ModeProvider, useMode } from './context/ModeContext';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 
 function RootRouter() {
   const { mode } = useMode();
+  const location = useLocation();
+  const isSellerRoute = location.pathname.startsWith('/seller');
   
   return (
     <div className={`min-h-screen font-sans ${mode === 'shopping' ? 'bg-gray-100' : 'bg-gray-100'}`}>
-      <Navbar />
+      {!isSellerRoute && <Navbar />}
       
-      <main className="max-w-7xl mx-auto py-8 animate-fade-in">
+      <main className={`${!isSellerRoute ? 'max-w-7xl mx-auto py-8 ' : ''}animate-fade-in`}>
         <Routes>
           <Route path="/" element={mode === 'shopping' ? <AmazonHome /> : <Navigate to="/relife" replace />} />
           <Route path="/product/:id" element={<AmazonProductDetails />} />
@@ -43,14 +56,30 @@ function RootRouter() {
           <Route path="/relife/credits" element={mode === 'relife' ? <Credits /> : <Navigate to="/" replace />} />
           
           {/* Shared Routes */}
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/fit-profile" element={<FitProfilePage />} />
+          <Route path="/profile/purchase-assistant" element={<PurchaseAssistantDashboard />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/leaderboard/:period" element={<Leaderboard />} />
           <Route path="/leaderboard" element={<Navigate to="/leaderboard/daily" replace />} />
+
+          {/* Seller Copilot Routes */}
+          <Route path="/seller" element={<SellerLayout />}>
+            <Route index element={<Navigate to="/seller/dashboard" replace />} />
+            <Route path="dashboard" element={<SellerDashboard />} />
+            <Route path="products" element={<SellerProducts />} />
+            <Route path="seo" element={<SellerSEO />} />
+            <Route path="reviews" element={<SellerReviews />} />
+            <Route path="competitors" element={<SellerCompetitors />} />
+            <Route path="recommendations" element={<SellerRecommendations />} />
+            <Route path="settings" element={<SellerSettings />} />
+          </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

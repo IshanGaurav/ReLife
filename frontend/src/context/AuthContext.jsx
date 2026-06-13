@@ -16,12 +16,13 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
-  const login = (email, password) => {
+  const login = (email, password, role = 'user') => {
     // Mock login logic
     if (email && password) {
       setUser({
         name: email.split('@')[0].split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' '),
         email: email,
+        role: role,
         memberSince: 'June 2026',
         badge: 'Silver Circular Citizen',
         credits: 1250,

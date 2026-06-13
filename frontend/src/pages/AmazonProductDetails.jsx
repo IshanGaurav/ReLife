@@ -4,6 +4,8 @@ import { Star, MapPin, ShieldCheck, Truck, Lock, RotateCcw, Recycle, Leaf } from
 import { amazonProducts, usedProducts, openBoxProducts } from '../data/mockData';
 import { useCart } from '../context/CartContext';
 import { useMode } from '../context/ModeContext';
+import ReLifeRecommendationCard from '../components/ui/ReLifeRecommendationCard';
+import AIPurchaseAssistant from '../components/ai-purchase-assistant/AIPurchaseAssistant';
 
 export default function AmazonProductDetails() {
   const { id } = useParams();
@@ -26,10 +28,14 @@ export default function AmazonProductDetails() {
       let bestMatch = null;
       let highestScore = -1;
 
+      // Parse Amazon price
+      const parsePrice = (priceStr) => parseFloat(priceStr.replace(/,/g, ''));
+      const amazonPriceNum = parsePrice(found.price);
+
       // Simple keyword matching for demo
       const searchKeywords = found.name.toLowerCase();
       
-      allReLifeProducts.forEach(relife => {
+      const validMatches = allReLifeProducts.filter(relife => {
         const relifeName = relife.name.toLowerCase();
         let matches = false;
         
@@ -40,14 +46,77 @@ export default function AmazonProductDetails() {
         if (searchKeywords.includes('wh-1000xm4') && relifeName.includes('wh-1000xm4')) matches = true;
 
         if (matches) {
-          if (relife.conditionScore > highestScore) {
-            highestScore = relife.conditionScore;
-            bestMatch = relife;
-          }
+          // Price Filtering: ensure relifePrice < amazonPrice
+          const relifePriceNum = parsePrice(relife.relifePrice);
+          if (relifePriceNum >= amazonPriceNum) return false;
+          return true;
         }
+        return false;
       });
 
-      setAlternative(bestMatch);
+      // Find the absolute best unit across all valid base products
+      let bestUnitRef = null;
+      let highestCondition = -1;
+      let bestPriceAdvantage = -1;
+      
+      validMatches.forEach(relife => {
+        if (!relife.availableUnits) return;
+        
+        relife.availableUnits.forEach(unit => {
+          // Parse unit price
+          const unitPriceNum = parsePrice(unit.price);
+          
+          // Price Filtering: ensure unit is cheaper than new Amazon product
+          if (unitPriceNum >= amazonPriceNum) return;
+
+          const priceAdvantage = amazonPriceNum - unitPriceNum;
+          
+          // Generate metrics (using unit.id instead of relife.id)
+          const idHash = unit.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+          
+          const co2SavedNum = relife.co2Saved ? parseInt(relife.co2Saved) : (idHash % 100) + 10;
+          const sustainabilityImpact = Math.min(co2SavedNum * 2, 100); 
+          
+          const lifespanExtensionYears = ((idHash % 50) / 10) + 1; 
+          const lifespanExtensionScore = Math.min(lifespanExtensionYears * 20, 100);
+          
+          const repairability = 60 + (idHash % 40); 
+          const logisticsEfficiency = 70 + (idHash % 30); 
+          
+          const greenScore = Math.round(
+            0.25 * unit.conditionScore + 
+            0.25 * sustainabilityImpact + 
+            0.20 * lifespanExtensionScore + 
+            0.15 * repairability + 
+            0.15 * logisticsEfficiency
+          );
+
+          // Store generated metrics on the unit
+          unit.calculatedMetrics = {
+            greenScore,
+            co2Saved: `${co2SavedNum}kg`,
+            lifespanExtension: `+${lifespanExtensionYears.toFixed(1)} Years`
+          };
+
+          // Condition-First Ranking Logic
+          let isBetter = false;
+          if (unit.conditionScore > highestCondition) {
+            isBetter = true;
+          } else if (unit.conditionScore === highestCondition) {
+            if (priceAdvantage > bestPriceAdvantage) {
+              isBetter = true;
+            }
+          }
+
+          if (isBetter) {
+            highestCondition = unit.conditionScore;
+            bestPriceAdvantage = priceAdvantage;
+            bestUnitRef = { product: relife, unit };
+          }
+        });
+      });
+
+      setAlternative(bestUnitRef);
     }
   }, [id, cartItems]);
 
@@ -146,48 +215,20 @@ export default function AmazonProductDetails() {
           </div>
 
           {/* Recommendation Widget */}
-          {alternative && (
-            <div className="bg-[#EFFFF3] border border-[#B8E2C4] rounded-lg p-5 my-2 relative overflow-hidden shadow-sm animate-fade-in group hover:shadow-md transition-shadow">
-              <div className="absolute top-[-20%] right-[-10%] w-32 h-32 bg-[#16a34a] rounded-full blur-[50px] opacity-20 pointer-events-none"></div>
-              
-              <div className="flex items-center mb-3">
-                <Recycle className="w-5 h-5 text-[#16a34a] mr-2" />
-                <h3 className="font-bold text-[#16a34a] text-lg">ReLife Alternative Available</h3>
-              </div>
-              
-              <h4 className="font-bold text-[#0F1111] text-md mb-2">{alternative.name}</h4>
-              
-              <div className="flex flex-wrap gap-2 mb-4">
-                <span className="text-xs font-bold bg-white text-[#16a34a] px-2 py-0.5 rounded border border-[#B8E2C4]">Condition: {alternative.conditionScore}/100</span>
-                {alternative.aiVerified && <span className="text-xs font-bold bg-[#F0F2F2] text-[#0F1111] px-2 py-0.5 rounded flex items-center"><ShieldCheck className="w-3 h-3 mr-1 text-[#16a34a]" /> AI Verified</span>}
-                {alternative.passportAvailable && <span className="text-xs font-bold bg-[#F0F2F2] text-[#0F1111] px-2 py-0.5 rounded">Digital Passport Included</span>}
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-end mb-4 gap-4">
-                <div>
-                  <div className="text-xs text-[#565959] mb-0.5">ReLife Price</div>
-                  <div className="text-2xl font-bold text-[#B12704] leading-none">₹{alternative.relifePrice}</div>
-                </div>
-                <div className="bg-[#16a34a] text-white px-3 py-1 rounded-sm text-sm font-bold flex items-center">
-                  Save ₹{calculateSavings(product.price, alternative.relifePrice)}
-                </div>
-              </div>
-              
-              <div className="text-sm text-[#007185] font-medium mb-5 flex items-center">
-                <Leaf className="w-4 h-4 mr-1 text-[#16a34a]" /> Buying this ReLife product saves {alternative.co2Saved || '15 kg'} CO₂.
-              </div>
-
-              <button 
-                onClick={() => {
-                  setMode('relife');
-                  navigate(`/relife/product/${alternative.id}`);
-                }}
-                className="bg-[#16a34a] hover:bg-[#15803d] text-white px-6 py-2.5 rounded-full text-sm font-bold shadow-md transition-all w-full flex items-center justify-center transform active:scale-95"
-              >
-                View ReLife Alternative
-              </button>
+          {alternative ? (
+            <ReLifeRecommendationCard recommendation={alternative} amazonProduct={product} />
+          ) : (
+            <div className="bg-gray-50 border border-[#D5D9D9] rounded-lg p-5 my-4 text-center">
+              <p className="text-[#565959] text-sm">No recommended ReLife alternative currently available.</p>
             </div>
           )}
+
+          {/* AI Purchase Assistant Widget */}
+          <AIPurchaseAssistant 
+            productId={product.id} 
+            brand={product.brand || product.specs?.Brand} 
+            category={product.category || 'Electronics'} 
+          />
 
           {/* Specs Table */}
           <div className="mb-6 mt-4">
