@@ -61,29 +61,7 @@ export default function ResellerProducts() {
             });
           });
           
-          // Add a dummy order if empty so the user can test the flow
-          if (purchasedItems.length === 0) {
-            purchasedItems.push({
-              _id: 'dummy-1',
-              name: 'Apple iPhone 15 Pro, 256GB',
-              price: 134900,
-              image: 'https://m.media-amazon.com/images/I/81SigpJN1KL._SX679_.jpg',
-              orderId: 'AMZ-8829-112',
-              orderDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180).toISOString(),
-              status: 'not_listed',
-              ageInYears: 0.5
-            });
-            purchasedItems.push({
-              _id: 'dummy-2',
-              name: 'Sony WH-1000XM5',
-              price: 29990,
-              image: 'https://m.media-amazon.com/images/I/61vJtKbAssL._SX679_.jpg',
-              orderId: 'AMZ-9938-221',
-              orderDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString(),
-              status: 'listed',
-              ageInYears: 0.1
-            });
-          }
+
 
           setOrders(purchasedItems);
         }
