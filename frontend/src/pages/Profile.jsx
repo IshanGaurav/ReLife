@@ -4,15 +4,16 @@ import { Leaf, Award, Recycle, ShoppingBag, Truck, Calendar, TreePine, Wind, Zap
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { transactionHistory, sellingHistory } from '../data/mockData';
-import { getSustainabilityApi, getMyOrdersApi, getTransactionsApi, getCreditBalanceApi } from '../api/client';
+import { getSustainabilityApi, getMyOrdersApi, getTransactionsApi, getCreditBalanceApi, getMeApi } from '../api/client';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'dashboard');
   const navigate = useNavigate();
   const [sustainabilityData, setSustainabilityData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUserLoading, setIsUserLoading] = useState(true);
 
   useEffect(() => {
     if (location.state?.tab) {
@@ -27,6 +28,14 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
+      getMeApi().then(data => {
+        if (data) updateUser(data);
+        setIsUserLoading(false);
+      }).catch(err => {
+        console.error(err);
+        setIsUserLoading(false);
+      });
+
       getSustainabilityApi().then(data => {
         if (data && data.success) {
           setSustainabilityData(data);
@@ -82,22 +91,30 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Leaf className="w-8 h-8 text-[#16a34a] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.greenCredits || 0}</h3>
+                <h3 className="text-3xl font-bold text-[#111]">
+                  {isUserLoading ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" /> : (user.greenCredits || 0)}
+                </h3>
                 <p className="text-sm text-[#565959]">Green Credits</p>
               </div>
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Recycle className="w-8 h-8 text-[#007185] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.itemsReused || 0}</h3>
+                <h3 className="text-3xl font-bold text-[#111]">
+                  {isUserLoading ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" /> : (user.itemsReused || 0)}
+                </h3>
                 <p className="text-sm text-[#565959]">Items Reused</p>
               </div>
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Wind className="w-8 h-8 text-[#C7511F] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.co2Saved || 0}</h3>
+                <h3 className="text-3xl font-bold text-[#111]">
+                  {isUserLoading ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" /> : (user.co2Saved || 0)}
+                </h3>
                 <p className="text-sm text-[#565959]">CO₂ Saved</p>
               </div>
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <ShoppingBag className="w-8 h-8 text-[#9333ea] mb-2" />
-                <h3 className="text-3xl font-bold text-[#111]">{user.soldCount || 0}</h3>
+                <h3 className="text-3xl font-bold text-[#111]">
+                  {isUserLoading ? <Loader2 className="w-6 h-6 animate-spin text-gray-400" /> : (user.soldCount || 0)}
+                </h3>
                 <p className="text-sm text-[#565959]">Items Sold</p>
               </div>
             </div>
