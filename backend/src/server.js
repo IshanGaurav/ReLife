@@ -7,7 +7,7 @@ dotenv.config();
 console.log('Mongo URI Loaded:', process.env.MONGODB_URI ? 'YES' : 'NO');
 console.log('JWT Secret Loaded:', process.env.JWT_SECRET ? 'YES' : 'NO');
 
-const PORT = env.port || 5000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Amazon ReLife API listening on port ${PORT}`);
