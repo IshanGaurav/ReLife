@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({ 
-  baseURL: import.meta.env.PROD ? 'http://SecondLife-backend-env.eba-ctpmfh8i.us-east-1.elasticbeanstalk.com/api' : 'http://localhost:5000/api'
+  baseURL: import.meta.env.PROD ? 'https://api.secondlife-api.xyz/api' : 'http://localhost:5000/api'
 });
 
 // Interceptor to add JWT token to requests
