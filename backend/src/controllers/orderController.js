@@ -4,6 +4,7 @@ import { RelifeProduct } from '../models/RelifeProduct.js';
 import { GreenCreditTransaction } from '../models/GreenCreditTransaction.js';
 import { Notification } from '../models/Notification.js';
 import { ProductPassport } from '../models/ProductPassport.js';
+import { AmazonProduct } from '../models/AmazonProduct.js';
 
 export const checkout = async (req, res) => {
   const lockedRelifeProducts = [];
@@ -25,12 +26,35 @@ export const checkout = async (req, res) => {
 
     // 1. ATOMIC LOCKING PHASE
     for (const item of cartItems) {
-      const isRelife = item.productType === 'relife' || item.productType === 'RelifeProduct';
+      let isRelife = item.productType === 'relife' || item.productType === 'RelifeProduct';
+      const pId = item.productId || item._id;
+
       if (isRelife) {
-        const pId = item.productId || item._id;
+        // Safety check: Fix misclassified Amazon products (e.g. from frontend originalId mismatch)
+        let filterForAmazon = { originalId: pId };
+        if (String(pId).match(/^[0-9a-fA-F]{24}$/)) {
+          filterForAmazon = { $or: [{ _id: pId }, { originalId: pId }] };
+        }
+        const isActuallyAmazon = await AmazonProduct.findOne(filterForAmazon);
+        if (isActuallyAmazon) {
+          isRelife = false;
+          item.productType = 'amazon'; // Fix in memory to bypass Relife phases
+        }
+      }
+
+      if (isRelife) {
         const filter = { status: 'ACTIVE' };
-        if (String(pId).match(/^[0-9a-fA-F]{24}$/)) filter._id = pId;
-        else filter.originalId = pId;
+        if (String(pId).match(/^[0-9a-fA-F]{24}$/)) {
+          filter.$or = [
+            { _id: pId },
+            { 'availableUnits._id': pId }
+          ];
+        } else {
+          filter.$or = [
+            { originalId: pId },
+            { 'availableUnits.unitId': pId }
+          ];
+        }
 
         // Atomically lock the product
         const lockedProduct = await RelifeProduct.findOneAndUpdate(
@@ -60,7 +84,14 @@ export const checkout = async (req, res) => {
 
       if (isRelife) {
         const pId = item.productId || item._id;
-        dbProduct = lockedRelifeProducts.find(p => p._id.toString() === pId.toString() || p.originalId === pId);
+        dbProduct = lockedRelifeProducts.find(p => 
+          p._id.toString() === pId.toString() || 
+          p.originalId === pId ||
+          (p.availableUnits && p.availableUnits.some(u => 
+            u._id?.toString() === pId.toString() || 
+            u.unitId === pId
+          ))
+        );
         
         creditsEarned = Math.floor(price / 100) * (item.quantity || 1);
         totalGreenCredits += creditsEarned;

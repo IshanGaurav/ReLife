@@ -30,7 +30,7 @@ export function CartProvider({ children }) {
     // Optimistic UI
     const newItem = {
       productId: productId,
-      productType: (product.relifePrice || product.originalId) ? 'relife' : 'amazon',
+      productType: product.relifePrice ? 'relife' : 'amazon',
       quantity: 1,
       name: product.name,
       price: product.relifePrice ? parseFloat(product.relifePrice.toString().replace(/,/g, '')) : product.price,

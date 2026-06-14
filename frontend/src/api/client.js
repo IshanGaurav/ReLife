@@ -130,9 +130,7 @@ export const uploadImagesApi = async (files) => {
     formData.append('images', file);
   });
   
-  const response = await api.post('/v2/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
+  const response = await api.post('/v2/upload', formData);
   return response.data.images.map(img => img.url); // returns array of URLs
 };
 
@@ -141,9 +139,7 @@ export const inspectImageWithAIApi = async (file) => {
   formData.append('image', file);
   
   try {
-    const response = await api.post('/v2/sustainability/ai-inspect', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    const response = await api.post('/v2/sustainability/ai-inspect', formData);
     return response.data;
   } catch (error) {
     throw error.response?.data || { message: error.message };

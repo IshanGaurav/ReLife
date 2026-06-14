@@ -3,8 +3,6 @@ import { GreenCreditTransaction } from '../models/GreenCreditTransaction.js';
 import { CircularAction } from '../models/CircularAction.js';
 import { RelifeProduct } from '../models/RelifeProduct.js';
 import { User } from '../models/User.js';
-import axios from 'axios';
-import FormData from 'form-data';
 
 export const getSustainabilityData = async (req, res) => {
   try {
@@ -278,26 +276,31 @@ export const inspectImageWithAI = async (req, res) => {
     }
 
     const formData = new FormData();
-    formData.append('file', req.file.buffer, req.file.originalname);
+    const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+    formData.append('file', blob, req.file.originalname);
 
-    let aiResponse;
+    let aiResponseData;
     try {
-      aiResponse = await axios.post('http://localhost:8000/predict', formData, {
-        headers: {
-          ...formData.getHeaders()
-        },
-        timeout: 10000 // 10 second timeout
+      const response = await fetch('http://localhost:8000/predict', {
+        method: 'POST',
+        body: formData,
+        signal: AbortSignal.timeout(10000)
       });
+      
+      if (!response.ok) {
+        throw new Error(`AI service responded with status ${response.status}`);
+      }
+      
+      aiResponseData = await response.json();
     } catch (aiError) {
       console.error('AI Service Error:', aiError.message);
-      // Return 503 Service Unavailable so the frontend knows the AI is offline and can prompt the user to retry
       return res.status(503).json({ 
         message: 'AI Inspection Service is currently unreachable. Please try again later.',
         error: aiError.message
       });
     }
 
-    const { confidence, damage_percentage } = aiResponse.data;
+    const { confidence, damage_percentage } = aiResponseData;
 
     // Calculate score and metrics
     const healthScore = Math.max(0, Math.min(100, Math.floor(100 - damage_percentage)));
