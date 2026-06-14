@@ -13,7 +13,7 @@ export function CartProvider({ children }) {
     if (user) {
       getCartApi().then(data => {
         if (data && data.success) {
-          setCartItems(data.cartItems);
+          setCartItems(data.cartItems || []);
         }
       }).catch(err => console.error('Failed to load cart', err));
     } else {
@@ -88,9 +88,9 @@ export function CartProvider({ children }) {
     }
   };
 
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const cartCount = (cartItems || []).reduce((acc, item) => acc + item.quantity, 0);
 
-  const cartTotal = cartItems.reduce((acc, item) => {
+  const cartTotal = (cartItems || []).reduce((acc, item) => {
     console.log('Calculating subtotal:', { cartItems, price: item.price, quantity: item.quantity });
     
     // Safely parse price, stripping commas if it's a string

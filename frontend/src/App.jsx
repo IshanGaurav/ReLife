@@ -32,6 +32,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { ModeProvider, useMode } from './context/ModeContext';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function RootRouter() {
   const { mode } = useMode();
@@ -93,20 +94,18 @@ function RootRouter() {
   );
 }
 
-import ErrorBoundary from './components/ErrorBoundary';
-
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <ModeProvider>
-          <ErrorBoundary>
+    <ErrorBoundary>
+      <AuthProvider>
+        <CartProvider>
+          <ModeProvider>
             <BrowserRouter>
               <RootRouter />
             </BrowserRouter>
-          </ErrorBoundary>
-        </ModeProvider>
-      </CartProvider>
-    </AuthProvider>
+          </ModeProvider>
+        </CartProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
