@@ -2,6 +2,8 @@ import { Order } from '../models/Order.js';
 import { User } from '../models/User.js';
 import { RelifeProduct } from '../models/RelifeProduct.js';
 import { GreenCreditTransaction } from '../models/GreenCreditTransaction.js';
+import { Notification } from '../models/Notification.js';
+import { ProductPassport } from '../models/ProductPassport.js';
 
 export const checkout = async (req, res) => {
   try {
@@ -34,27 +36,24 @@ export const checkout = async (req, res) => {
       let conditionScore = null;
 
       if (isRelife) {
-        dbProduct = await RelifeProduct.findById(item.productId || item._id);
+        const pId = item.productId || item._id;
+        if (String(pId).match(/^[0-9a-fA-F]{24}$/)) {
+          dbProduct = await RelifeProduct.findById(pId);
+        } else {
+          dbProduct = await RelifeProduct.findOne({ originalId: pId });
+        }
+        
+        if (dbProduct && dbProduct.status === 'SOLD') {
+          return res.status(400).json({ message: `Sorry, ${dbProduct.name} has already been sold.` });
+        }
+        
+        // Mathematical formula: 1 credit per ₹100
+        creditsEarned = Math.floor(price / 100) * (item.quantity || 1);
+        totalGreenCredits += creditsEarned;
+        
+        totalItemsReused += (item.quantity || 1);
         
         if (dbProduct) {
-          totalItemsReused += (item.quantity || 1);
-          
-          let listingType = 'used';
-          if (dbProduct.isUsed === false) {
-             listingType = 'open_box';
-          } else if (dbProduct.name.toLowerCase().includes('refurbished')) {
-             listingType = 'refurbished';
-          }
-
-          if (listingType === 'open_box') {
-             creditsEarned = 250 * (item.quantity || 1); // 150 to 300
-          } else if (listingType === 'refurbished') {
-             creditsEarned = 350 * (item.quantity || 1); // 200 to 400
-          } else {
-             creditsEarned = 150 * (item.quantity || 1); // 100 to 250
-          }
-          totalGreenCredits += creditsEarned;
-          
           // Parse co2Saved string (e.g., "220 kg")
           if (dbProduct.co2Saved) {
             const co2 = parseFloat(dbProduct.co2Saved.replace(/[^\d.-]/g, ''));
@@ -67,12 +66,16 @@ export const checkout = async (req, res) => {
              itemCo2Saved = 45;
              totalCo2Saved += 45 * (item.quantity || 1);
           }
-          
           conditionScore = dbProduct.conditionScore || null;
-          
-          // Rule: 2.5kg waste diverted per item
-          totalWasteDiverted += 2.5 * (item.quantity || 1);
+        } else {
+          // Fallback if db product is missing
+          itemCo2Saved = 45;
+          totalCo2Saved += 45 * (item.quantity || 1);
+          conditionScore = 90;
         }
+        
+        // Rule: 2.5kg waste diverted per item
+        totalWasteDiverted += 2.5 * (item.quantity || 1);
       }
 
       orderItems.push({
@@ -101,25 +104,90 @@ export const checkout = async (req, res) => {
       shippingAddress: shippingData ? `${shippingData.address}, ${shippingData.city}, ${shippingData.state} ${shippingData.pin}` : 'Default Address'
     });
 
-    // Create Ledger Entries per ReLife Item
+    // Create Ledger Entries per ReLife Item and handle SOLD state
     for (const item of orderItems) {
-      if (item.productType === 'RelifeProduct' && item.greenCredits > 0) {
-        await GreenCreditTransaction.create({
-          userId: req.user._id,
-          type: 'PURCHASE',
-          productId: item.productId,
-          productName: item.name,
-          credits: item.greenCredits,
-          co2Saved: item.co2Saved,
-          description: `Purchased ReLife Unit (${item.conditionScore || 'Excellent'})`
-        });
-      }
+      if (item.productType === 'RelifeProduct' || item.productType === 'relife') {
+        if (item.greenCredits > 0) {
+          await GreenCreditTransaction.create({
+            userId: req.user._id,
+            type: 'PURCHASE',
+            productId: item.productId,
+            productName: item.name,
+            credits: item.greenCredits,
+            co2Saved: item.co2Saved,
+            description: `Purchased ReLife Unit (${item.conditionScore || 'Excellent'})`
+          });
+        }
+        
+        // Mark the RelifeProduct as SOLD
+        let dbProductToUpdate = null;
+        if (String(item.productId).match(/^[0-9a-fA-F]{24}$/)) {
+          dbProductToUpdate = await RelifeProduct.findById(item.productId);
+        } else {
+          dbProductToUpdate = await RelifeProduct.findOne({ originalId: item.productId });
+        }
+        
+        if (dbProductToUpdate) {
+          console.log(`[Order Controller] Before Purchase: Product ${dbProductToUpdate.name} status = ${dbProductToUpdate.status}`);
+          
+          dbProductToUpdate.status = 'SOLD';
+          dbProductToUpdate.soldAt = new Date();
+          dbProductToUpdate.buyerId = req.user._id;
+          dbProductToUpdate.transactionId = order._id;
+          await dbProductToUpdate.save();
+          
+          console.log(`[Order Controller] After Purchase: Product ${dbProductToUpdate.name} status = ${dbProductToUpdate.status}`);
+
+          // Transfer Product Passport Ownership
+          const passport = await ProductPassport.findOne({ productId: dbProductToUpdate._id });
+          if (passport) {
+            passport.ownershipHistory.push({
+              userId: req.user._id,
+              name: req.user.name,
+              from: new Date()
+            });
+            await passport.save();
+          }
+
+          // Update Seller
+          if (dbProductToUpdate.listingOwnerId) {
+            const seller = await User.findById(dbProductToUpdate.listingOwnerId);
+            if (seller) {
+              seller.soldCount = (seller.soldCount || 0) + 1;
+              await seller.save();
+
+              // Create Notification
+              await Notification.create({
+                userId: seller._id,
+                title: 'Product Sold',
+                message: `Your listing '${dbProductToUpdate.name}' has been purchased successfully.`,
+                type: 'SALE',
+                relatedItemId: dbProductToUpdate._id
+              });
+            }
+          }
+        }  
+          // If it was a resell item, update the source order item's resaleStatus
+          if (dbProductToUpdate && dbProductToUpdate.sourceOrderId && dbProductToUpdate.sourceItemId) {
+            const sourceOrder = await Order.findById(dbProductToUpdate.sourceOrderId);
+            if (sourceOrder) {
+              const sourceItem = sourceOrder.items.id(dbProductToUpdate.sourceItemId) || sourceOrder.items.find(i => i._id.toString() === dbProductToUpdate.sourceItemId.toString());
+              if (sourceItem) {
+                sourceItem.resaleStatus = 'sold';
+                await sourceOrder.save();
+              }
+            }
+          }
+        }
     }
 
     // Update User Profile with new metrics
     const user = await User.findById(req.user._id);
+    let previousBalance = 0;
     if (user) {
+      previousBalance = user.greenCredits || 0;
       user.greenCredits += totalGreenCredits;
+      user.lifetimeCreditsEarned = (user.lifetimeCreditsEarned || 0) + totalGreenCredits;
       user.co2Saved += totalCo2Saved;
       user.itemsReused += totalItemsReused;
       user.totalSustainablePurchases += (totalItemsReused > 0 ? totalAmount : 0);
@@ -136,14 +204,18 @@ export const checkout = async (req, res) => {
         email: user.email,
         role: user.role,
         greenCredits: user.greenCredits,
+        lifetimeCreditsEarned: user.lifetimeCreditsEarned,
         co2Saved: user.co2Saved,
         itemsReused: user.itemsReused,
         wasteDiverted: user.wasteDiverted
       },
       impact: {
+        previousBalance,
+        newBalance: user ? user.greenCredits : 0,
         creditsEarned: totalGreenCredits,
         co2Saved: totalCo2Saved,
-        wasteDiverted: totalWasteDiverted
+        wasteDiverted: totalWasteDiverted,
+        itemsReused: totalItemsReused
       }
     });
 

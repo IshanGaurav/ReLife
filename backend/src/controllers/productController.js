@@ -1,5 +1,6 @@
 import { AmazonProduct } from '../models/AmazonProduct.js';
 import { RelifeProduct } from '../models/RelifeProduct.js';
+import { Order } from '../models/Order.js';
 
 export const getAmazonProducts = async (req, res) => {
   try {
@@ -33,7 +34,10 @@ export const getAmazonProductById = async (req, res) => {
 export const getRelifeProducts = async (req, res) => {
   try {
     const isUsed = req.query.type === 'used' ? true : req.query.type === 'openbox' ? false : undefined;
-    const filter = isUsed !== undefined ? { isUsed } : {};
+    const filter = { status: 'ACTIVE' };
+    if (isUsed !== undefined) {
+      filter.isUsed = isUsed;
+    }
     const products = await RelifeProduct.find(filter);
     res.json(products);
   } catch (error) {
@@ -62,7 +66,7 @@ export const getRecommendationsForAsin = async (req, res) => {
     const { asin } = req.params;
     
     // Find all relife products that correspond to this Amazon ASIN (originalId)
-    const alternatives = await RelifeProduct.find({ originalAsin: asin });
+    const alternatives = await RelifeProduct.find({ originalAsin: asin, status: 'ACTIVE' });
     
     if (!alternatives || alternatives.length === 0) {
       return res.status(404).json({ message: 'No recommendations found' });
@@ -111,7 +115,7 @@ export const searchAllProducts = async (req, res) => {
     }
     
     if (!mode || mode === 'relife') {
-      result.relife = await RelifeProduct.find({ name: regex });
+      result.relife = await RelifeProduct.find({ name: regex, status: 'ACTIVE' });
     }
 
     res.json(result);
@@ -154,11 +158,11 @@ export const getCrossMarketRecommendations = async (req, res) => {
     if (isAmazon) {
       let exactMatches = [];
       if (currentProduct.originalId) {
-        exactMatches = await RelifeProduct.find({ originalAsin: currentProduct.originalId });
+        exactMatches = await RelifeProduct.find({ originalAsin: currentProduct.originalId, status: 'ACTIVE' });
       }
       
       const fuzzyMatches = await RelifeProduct.find(
-        { $text: { $search: searchText } },
+        { $text: { $search: searchText }, status: 'ACTIVE' },
         { score: { $meta: "textScore" } }
       ).sort({ score: { $meta: "textScore" } }).limit(5);
 
@@ -214,6 +218,52 @@ export const getCrossMarketRecommendations = async (req, res) => {
     });
   } catch (error) {
     console.error("Cross-market rec error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getMyRelifeListings = async (req, res) => {
+  try {
+    const listings = await RelifeProduct.find({ listingOwnerId: req.user._id }).sort({ createdAt: -1 });
+    res.json(listings);
+  } catch (error) {
+    console.error("My listings error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteRelifeListing = async (req, res) => {
+  try {
+    const listingId = req.params.id;
+    const listing = await RelifeProduct.findById(listingId);
+    
+    if (!listing) {
+      return res.status(404).json({ message: 'Listing not found' });
+    }
+
+    if (listing.listingOwnerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to delete this listing' });
+    }
+
+    // Delete the listing
+    await RelifeProduct.findByIdAndDelete(listingId);
+
+    // If it was a resell item, revert the order item's resaleStatus
+    if (listing.sourceOrderId && listing.sourceItemId) {
+      const sourceOrder = await Order.findById(listing.sourceOrderId);
+      if (sourceOrder) {
+        const sourceItem = sourceOrder.items.id(listing.sourceItemId) || sourceOrder.items.find(i => i._id.toString() === listing.sourceItemId.toString());
+        if (sourceItem) {
+          sourceItem.resaleStatus = 'not_listed';
+          sourceItem.resaleListingId = null;
+          await sourceOrder.save();
+        }
+      }
+    }
+
+    res.json({ success: true, message: 'Listing deleted successfully' });
+  } catch (error) {
+    console.error("Delete listing error:", error);
     res.status(500).json({ message: error.message });
   }
 };

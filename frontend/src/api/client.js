@@ -20,6 +20,18 @@ export const getMeApi = () => api.get('/auth/me').then(res => res.data);
 
 // Cart Endpoints
 export const getCartApi = () => api.get('/v2/cart').then(res => res.data);
+
+// Notifications
+export const getNotificationsApi = async () => {
+  const response = await api.get('/notifications');
+  return response.data;
+};
+
+export const markNotificationReadApi = async (id) => {
+  const response = await api.put(`/notifications/${id}/read`);
+  return response.data;
+};
+
 export const addToCartApi = (item) => api.post('/v2/cart/add', item).then(res => res.data);
 export const removeFromCartApi = (productId) => api.delete(`/v2/cart/${productId}`).then(res => res.data);
 export const updateCartQuantityApi = (productId, quantity) => api.put(`/v2/cart/update`, { productId, quantity }).then(res => res.data);
@@ -91,3 +103,45 @@ export const getSustainabilityApi = async () => {
     return null;
   }
 };
+
+export const submitCircularActionApi = async (payload) => {
+  try {
+    const res = await api.post('/v2/sustainability/circular-action', payload);
+    return res.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+export const getMyRelifeListingsApi = async () => {
+  try {
+    const res = await api.get('/v2/relife-products/my-listings');
+    return res.data;
+  } catch (error) {
+    console.error('getMyRelifeListingsApi error', error);
+    return [];
+  }
+};
+
+export const uploadImagesApi = async (files) => {
+  if (!files || files.length === 0) return [];
+  const formData = new FormData();
+  files.forEach(file => {
+    formData.append('images', file);
+  });
+  
+  const response = await api.post('/v2/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data.images.map(img => img.url); // returns array of URLs
+};
+
+export const deleteRelifeListingApi = async (id) => {
+  try {
+    const res = await api.delete(`/v2/relife-products/${id}`);
+    return res.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+

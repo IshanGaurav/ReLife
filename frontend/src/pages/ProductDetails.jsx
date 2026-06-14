@@ -4,6 +4,7 @@ import { ShieldCheck, MapPin, Leaf, CheckCircle, ChevronRight, Star, Clock, Wren
 import { useCart } from '../context/CartContext';
 import { useMode } from '../context/ModeContext';
 import { getRelifeProduct } from '../api/client';
+import { getImageUrl } from '../utils/imageUtils';
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -17,6 +18,7 @@ export default function ProductDetails() {
   const [isUsed, setIsUsed] = useState(false);
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [activeImage, setActiveImage] = useState(0);
   const unitsSectionRef = useRef(null);
 
   const calculateSavings = (amazonPrice, relifePrice) => {
@@ -95,16 +97,21 @@ export default function ProductDetails() {
         <div className="md:col-span-4 flex flex-col">
           <div className="sticky top-24">
             <div className="border border-[#D5D9D9] rounded-lg p-8 flex items-center justify-center h-96 bg-white relative overflow-hidden group">
-              <img src={product.image} alt={product.name} className="max-h-full object-contain mix-blend-multiply group-hover:scale-150 transition-transform duration-300" />
+              <img src={getImageUrl(product.images && product.images.length > 0 ? product.images[activeImage] : (product.coverImage || product.image))} alt={product.name} className="max-h-full object-contain mix-blend-multiply group-hover:scale-150 transition-transform duration-300" />
             </div>
             
-            <div className="flex space-x-2 mt-4 justify-center">
-              <div className="w-12 h-12 border border-[#C7511F] rounded cursor-pointer p-1">
-                <img src={product.image} className="w-full h-full object-contain" alt="thumbnail 1"/>
-              </div>
-              <div className="w-12 h-12 border border-[#D5D9D9] rounded cursor-pointer p-1 opacity-60 hover:opacity-100 transition-opacity">
-                <img src={product.image} className="w-full h-full object-contain" alt="thumbnail 2"/>
-              </div>
+            <div className="flex space-x-2 mt-4 justify-center overflow-x-auto">
+              {product.images && product.images.length > 0 ? (
+                product.images.map((imgUrl, idx) => (
+                  <div key={idx} onClick={() => setActiveImage(idx)} className={`flex-shrink-0 w-12 h-12 border rounded cursor-pointer p-1 transition-opacity ${activeImage === idx ? 'border-[#C7511F] opacity-100' : 'border-[#D5D9D9] opacity-60 hover:opacity-100'}`}>
+                    <img src={getImageUrl(imgUrl)} className="w-full h-full object-contain mix-blend-multiply" alt={`thumbnail ${idx}`}/>
+                  </div>
+                ))
+              ) : (
+                <div className="w-12 h-12 border border-[#C7511F] rounded cursor-pointer p-1">
+                  <img src={getImageUrl(product.image)} className="w-full h-full object-contain" alt="thumbnail 1"/>
+                </div>
+              )}
             </div>
             
             {/* Sustainability Badge */}
@@ -292,38 +299,52 @@ export default function ProductDetails() {
             <p className="text-sm text-[#007185] flex items-center mb-4 cursor-pointer hover:text-[#C7511F] hover:underline">
               <MapPin className="w-4 h-4 mr-1 text-[#0F1111]" /> Deliver to Patna 800020
             </p>
-            <h5 className="text-[#007185] font-bold text-lg mb-2">In stock</h5>
-            <button 
-              className={`w-full rounded-full py-2.5 text-sm font-bold shadow-sm mb-2 transition-colors flex items-center justify-center ${
-                cartItems.some(item => item.productId === (selectedUnit._id || selectedUnit.id) || item._id === (selectedUnit._id || selectedUnit.id))
-                  ? 'bg-[#16a34a] text-white hover:bg-green-700 border-transparent' 
-                  : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200]'
-              }`}
-              onClick={() => {
-                const productId = selectedUnit._id || selectedUnit.id;
-                const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
-                if (isInCart) {
-                  navigate('/cart');
-                } else {
-                  addToCart({ ...product, ...selectedUnit, productId: selectedUnit._id || selectedUnit.id });
-                }
-              }}
-            >
-              <span className="font-bold">
-                {cartItems.some(item => item.productId === (selectedUnit._id || selectedUnit.id) || item._id === (selectedUnit._id || selectedUnit.id)) ? '✓ Added to Cart' : 'Add to Cart'}
-              </span>
-            </button>
-            <button 
-              className="w-full bg-[#FFA41C] hover:bg-[#FA8900] border border-[#FF8F00] rounded-full py-2.5 text-sm font-bold shadow-sm"
-              onClick={() => {
-                if (!cartItems.some(item => item.id === selectedUnit.id)) {
-                  addToCart({ ...product, ...selectedUnit });
-                }
-                navigate('/checkout');
-              }}
-            >
-              Buy Now
-            </button>
+            {product.status === 'SOLD' ? (
+              <>
+                <h5 className="text-[#C7511F] font-bold text-lg mb-2">Out of stock</h5>
+                <button 
+                  disabled
+                  className="w-full rounded-full py-2.5 text-sm font-bold shadow-sm mb-2 bg-gray-200 text-gray-500 border border-gray-300 cursor-not-allowed"
+                >
+                  <span className="font-bold">This item has been sold</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <h5 className="text-[#007185] font-bold text-lg mb-2">In stock</h5>
+                <button 
+                  className={`w-full rounded-full py-2.5 text-sm font-bold shadow-sm mb-2 transition-colors flex items-center justify-center ${
+                    cartItems.some(item => item.productId === (selectedUnit._id || selectedUnit.id) || item._id === (selectedUnit._id || selectedUnit.id))
+                      ? 'bg-[#16a34a] text-white hover:bg-green-700 border-transparent' 
+                      : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200]'
+                  }`}
+                  onClick={() => {
+                    const productId = selectedUnit._id || selectedUnit.id;
+                    const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
+                    if (isInCart) {
+                      navigate('/cart');
+                    } else {
+                      addToCart({ ...product, ...selectedUnit, productId: selectedUnit._id || selectedUnit.id });
+                    }
+                  }}
+                >
+                  <span className="font-bold">
+                    {cartItems.some(item => item.productId === (selectedUnit._id || selectedUnit.id) || item._id === (selectedUnit._id || selectedUnit.id)) ? '✓ Added to Cart' : 'Add to Cart'}
+                  </span>
+                </button>
+                <button 
+                  className="w-full bg-[#FFA41C] hover:bg-[#FA8900] border border-[#FF8F00] rounded-full py-2.5 text-sm font-bold shadow-sm"
+                  onClick={() => {
+                    if (!cartItems.some(item => item.id === selectedUnit.id)) {
+                      addToCart({ ...product, ...selectedUnit });
+                    }
+                    navigate('/checkout');
+                  }}
+                >
+                  Buy Now
+                </button>
+              </>
+            )}
             <div className="mt-4 text-xs text-[#565959] space-y-1 border-b border-[#D5D9D9] pb-4">
               <div className="flex justify-between"><span>Ships from</span> <span>Amazon ReLife Fulfillment</span></div>
               <div className="flex justify-between"><span>Sold by</span> <span className="font-bold text-[#007185] cursor-pointer hover:underline">{selectedUnit.sellerName}</span></div>

@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, MapPin, Menu, ChevronDown, Leaf, User, Clock } from 'lucide-react';
+import { Search, ShoppingCart, MapPin, Menu, ChevronDown, Leaf, User, Clock, Bell } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { searchProducts, getRecommendation, getRelifeProduct } from '../api/client';
+import { searchProducts, getRecommendation, getRelifeProduct, getNotificationsApi, markNotificationReadApi } from '../api/client';
 
 export default function Navbar() {
   const { mode, toggleMode, setMode } = useMode();
@@ -25,6 +25,9 @@ export default function Navbar() {
     }
   }, [location.pathname, mode, setMode]);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -38,6 +41,18 @@ export default function Navbar() {
     }
   });
   const searchContainerRef = useRef(null);
+
+  // Fetch Notifications
+  useEffect(() => {
+    if (user) {
+      getNotificationsApi().then(data => {
+        if (data.success) {
+          setNotifications(data.notifications);
+          setUnreadCount(data.notifications.filter(n => !n.isRead).length);
+        }
+      }).catch(err => console.error("Failed to fetch notifications", err));
+    }
+  }, [user]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -171,6 +186,22 @@ export default function Navbar() {
     }
   };
 
+  const handleNotificationClick = async (notif) => {
+    if (!notif.isRead) {
+      try {
+        await markNotificationReadApi(notif._id);
+        setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, isRead: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      } catch (err) {
+        console.error("Failed to mark notification as read", err);
+      }
+    }
+    setShowNotificationsMenu(false);
+    if (notif.relatedItemId) {
+      navigate(`/relife/product/${notif.relatedItemId}`);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50">
       {/* Top Tier (Dark Navy) */}
@@ -287,6 +318,51 @@ export default function Navbar() {
           🇮🇳 EN <ChevronDown className="w-3 h-3 ml-1 text-gray-400" />
         </div>
 
+        {/* Notifications */}
+        {user && (
+          <div 
+            className="hidden lg:flex flex-col border border-transparent hover:border-white p-1 rounded-sm cursor-pointer relative"
+            onMouseEnter={() => setShowNotificationsMenu(true)}
+            onMouseLeave={() => setShowNotificationsMenu(false)}
+          >
+            <div className="relative flex flex-col items-center justify-center h-full px-2">
+              <Bell className="w-6 h-6" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#C40000] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            
+            {showNotificationsMenu && (
+              <div className="absolute top-10 right-0 w-80 bg-white text-black rounded-sm shadow-xl border border-gray-200 z-50 overflow-hidden">
+                <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex justify-between items-center">
+                  <h3 className="font-bold text-[#111]">Notifications</h3>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">
+                      No notifications yet.
+                    </div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif._id} 
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${!notif.isRead ? 'bg-[#f0f8ff]' : ''}`}
+                      >
+                        <h4 className={`text-sm ${!notif.isRead ? 'font-bold text-[#111]' : 'text-gray-700'}`}>{notif.title}</h4>
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{notif.message}</p>
+                        <p className="text-[10px] text-gray-400 mt-1">{new Date(notif.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Account & Lists */}
         <div 
           className="hidden lg:flex flex-col border border-transparent hover:border-white p-1 rounded-sm cursor-pointer relative"
@@ -388,7 +464,15 @@ export default function Navbar() {
         {mode === 'relife' && (
           <div className="flex items-center space-x-1 mr-auto font-bold text-[#FF9900]">
             <Link to="/relife" className={`px-3 py-1 rounded-sm transition-colors border-b-2 ${location.pathname === '/relife' ? 'border-[#FF9900] text-white' : 'border-transparent hover:border-white hover:text-white'}`}>ReLife Home</Link>
-            <Link to="/relife/sell" className={`px-3 py-1 rounded-sm transition-colors border-b-2 ${location.pathname === '/relife/sell' ? 'border-[#FF9900] text-white' : 'border-transparent hover:border-white hover:text-white'}`}>Sell an Item</Link>
+            <div className="relative group">
+              <div className={`px-3 py-1 rounded-sm transition-colors border-b-2 cursor-pointer flex items-center ${location.pathname.startsWith('/reseller') ? 'border-[#FF9900] text-white' : 'border-transparent hover:border-white hover:text-white'}`}>
+                ReLife Reseller <ChevronDown className="w-3 h-3 ml-1" />
+              </div>
+              <div className="absolute top-full left-0 w-48 bg-white text-black rounded-sm shadow-xl border border-gray-200 z-50 py-2 hidden group-hover:block">
+                <Link to="/reseller" className="block px-4 py-2 text-sm hover:bg-gray-100 hover:text-[#e77600]">My Products</Link>
+                <Link to="/reseller/listings" className="block px-4 py-2 text-sm hover:bg-gray-100 hover:text-[#e77600]">My Listings</Link>
+              </div>
+            </div>
             <Link to="/relife/marketplace" className={`px-3 py-1 rounded-sm transition-colors border-b-2 ${location.pathname === '/relife/marketplace' ? 'border-[#FF9900] text-white' : 'border-transparent hover:border-white hover:text-white'}`}>Marketplace</Link>
             <Link to="/relife/openbox" className={`px-3 py-1 rounded-sm transition-colors border-b-2 ${location.pathname === '/relife/openbox' ? 'border-[#FF9900] text-white' : 'border-transparent hover:border-white hover:text-white'}`}>Open Box</Link>
             <Link to="/relife/passports" className={`px-3 py-1 rounded-sm transition-colors border-b-2 ${location.pathname === '/relife/passports' ? 'border-[#FF9900] text-white' : 'border-transparent hover:border-white hover:text-white'}`}>Digital Passports</Link>

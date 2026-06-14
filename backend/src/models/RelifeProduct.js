@@ -28,11 +28,22 @@ const relifeProductSchema = new mongoose.Schema({
   sellerRating: { type: Number },
   sellerReviews: { type: Number },
   image: { type: String, required: true },
+  images: [{ type: String }],
+  thumbnailUrl: { type: String },
+  coverImage: { type: String },
   category: { type: String },
   co2Saved: { type: String },
   greenCredits: { type: Number },
   discountPercent: { type: Number },
-  availableUnits: [unitSchema]
+  availableUnits: [unitSchema],
+  listingOwnerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  sourceOrderId: { type: String },
+  sourceItemId: { type: String },
+  amazonVerified: { type: Boolean, default: false },
+  status: { type: String, enum: ['ACTIVE', 'PENDING', 'SOLD'], default: 'ACTIVE' },
+  soldAt: { type: Date },
+  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  transactionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' }
 }, { timestamps: true });
 
 relifeProductSchema.index({ name: 'text', category: 'text' });

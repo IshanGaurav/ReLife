@@ -22,10 +22,23 @@ export default function SellerProducts() {
     fetchProducts();
   }, []);
 
-  const filteredProducts = products.filter(p => 
-    p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [activeFilter, setActiveFilter] = useState('All');
+  const filters = ['All', 'Eligible for ReLife Sale', 'Already Listed', 'Already Sold', 'Pending Inspection'];
+
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.title.toLowerCase().includes(searchTerm.toLowerCase()) || p.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // In a real app we'd filter by p.status based on the API return. 
+    // For now we mock the filter functionality so the user can interact with the buttons.
+    let matchesFilter = true;
+    if (activeFilter !== 'All') {
+      // Mock logic just to prove the filter changes
+      if (activeFilter === 'Already Listed') matchesFilter = p.listingHealth === 'Excellent';
+      else if (activeFilter === 'Pending Inspection') matchesFilter = p.listingHealth === 'Needs Attention';
+      else matchesFilter = false; 
+    }
+    return matchesSearch && matchesFilter;
+  });
 
   const getHealthColor = (health) => {
     switch(health) {
@@ -57,16 +70,16 @@ export default function SellerProducts() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Product Inventory</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage and optimize your Amazon listings.</p>
+          <p className="text-sm text-gray-500 mt-1">Manage your Amazon ReLife portfolio.</p>
         </div>
         <div className="flex gap-2">
           <button className="flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             <Download className="w-4 h-4 mr-2" />
             Export
           </button>
-          <button className="flex items-center px-4 py-2 bg-[#14b8a6] hover:bg-teal-600 text-white rounded-lg text-sm font-medium shadow-sm transition-colors">
+          <button className="flex items-center px-4 py-2 bg-[#14b8a6] hover:bg-teal-600 text-white rounded-lg text-sm font-medium shadow-sm transition-colors" onClick={() => window.location.href='/relife/sell'}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Product
+            Sell an Item
           </button>
         </div>
       </div>
@@ -76,22 +89,36 @@ export default function SellerProducts() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
       >
-        {/* Toolbar */}
-        <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between gap-4 bg-gray-50/50">
-          <div className="relative w-full sm:w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search products by title or category..."
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#14b8a6]/50 focus:border-[#14b8a6] transition-all bg-white"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        {/* Toolbar & Filters */}
+        <div className="p-4 border-b border-gray-200 flex flex-col space-y-4 bg-gray-50/50">
+          <div className="flex flex-col sm:flex-row justify-between gap-4">
+            <div className="relative w-full sm:w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Search products by title or category..."
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#14b8a6]/50 focus:border-[#14b8a6] transition-all bg-white"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button className="flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+              <Filter className="w-4 h-4 mr-2" />
+              More Filters
+            </button>
           </div>
-          <button className="flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </button>
+          
+          <div className="flex flex-wrap gap-2 pt-2">
+            {filters.map(filter => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${activeFilter === filter ? 'bg-[#14b8a6] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Table */}

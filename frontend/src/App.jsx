@@ -11,7 +11,8 @@ import SellerRecommendations from './pages/seller/SellerRecommendations';
 import SellerSettings from './pages/seller/SellerSettings';
 import ReLifeHome from './pages/ReLifeHome';
 import Dashboard from './pages/Dashboard';
-import Upload from './pages/Upload';
+import ResellerProducts from './pages/reseller/ResellerProducts';
+import ResellerListings from './pages/reseller/ResellerListings';
 import Marketplace from './pages/Marketplace';
 import ProductDetails from './pages/ProductDetails';
 import Passport from './pages/Passport';
@@ -48,7 +49,7 @@ function RootRouter() {
           
           {/* ReLife Specific Routes */}
           <Route path="/relife" element={<ReLifeHome />} />
-          <Route path="/relife/sell" element={<Upload />} />
+          {/* <Route path="/relife/sell" element={<Upload />} /> removed, replaced by /reseller */}
           <Route path="/relife/marketplace" element={<Marketplace />} />
           <Route path="/relife/openbox" element={<Marketplace />} />
           <Route path="/relife/passports" element={<Marketplace />} />
@@ -69,7 +70,7 @@ function RootRouter() {
           <Route path="/leaderboard/:period" element={<Leaderboard />} />
           <Route path="/leaderboard" element={<Navigate to="/leaderboard/daily" replace />} />
 
-          {/* Seller Copilot Routes */}
+          {/* Seller Copilot Routes (Strictly Amazon Sellers) */}
           <Route path="/seller" element={<ProtectedRoute allowedRoles={['seller']}><SellerLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/seller/dashboard" replace />} />
             <Route path="dashboard" element={<SellerDashboard />} />
@@ -81,6 +82,10 @@ function RootRouter() {
             <Route path="settings" element={<SellerSettings />} />
           </Route>
 
+          {/* ReLife Reseller Routes (Consumer-to-Consumer) */}
+          <Route path="/reseller" element={<ProtectedRoute allowedRoles={['customer', 'seller']}><ResellerProducts /></ProtectedRoute>} />
+          <Route path="/reseller/listings" element={<ProtectedRoute allowedRoles={['customer', 'seller']}><ResellerListings /></ProtectedRoute>} />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -88,14 +93,18 @@ function RootRouter() {
   );
 }
 
+import ErrorBoundary from './components/ErrorBoundary';
+
 export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <ModeProvider>
-          <BrowserRouter>
-            <RootRouter />
-          </BrowserRouter>
+          <ErrorBoundary>
+            <BrowserRouter>
+              <RootRouter />
+            </BrowserRouter>
+          </ErrorBoundary>
         </ModeProvider>
       </CartProvider>
     </AuthProvider>

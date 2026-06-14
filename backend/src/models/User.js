@@ -6,10 +6,12 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
   greenCredits: { type: Number, default: 0 },
+  lifetimeCreditsEarned: { type: Number, default: 0 },
   co2Saved: { type: Number, default: 0 },
   itemsReused: { type: Number, default: 0 },
   totalSustainablePurchases: { type: Number, default: 0 },
   wasteDiverted: { type: Number, default: 0 },
+  soldCount: { type: Number, default: 0 },
   role: { type: String, enum: ['customer', 'seller', 'admin'], default: 'customer' },
   cartItems: [{
     productId: { type: mongoose.Schema.Types.ObjectId, required: true },

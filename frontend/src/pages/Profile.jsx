@@ -79,7 +79,7 @@ export default function Profile() {
         return (
           <div className="space-y-8 animate-fade-in">
             {/* Stat Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
                 <Leaf className="w-8 h-8 text-[#16a34a] mb-2" />
                 <h3 className="text-3xl font-bold text-[#111]">{user.greenCredits || 0}</h3>
@@ -94,6 +94,11 @@ export default function Profile() {
                 <Wind className="w-8 h-8 text-[#C7511F] mb-2" />
                 <h3 className="text-3xl font-bold text-[#111]">{user.co2Saved || 0}</h3>
                 <p className="text-sm text-[#565959]">CO₂ Saved</p>
+              </div>
+              <div className="bg-white border border-[#D5D9D9] p-4 rounded shadow-sm flex flex-col justify-center items-center text-center">
+                <ShoppingBag className="w-8 h-8 text-[#9333ea] mb-2" />
+                <h3 className="text-3xl font-bold text-[#111]">{user.soldCount || 0}</h3>
+                <p className="text-sm text-[#565959]">Items Sold</p>
               </div>
             </div>
 

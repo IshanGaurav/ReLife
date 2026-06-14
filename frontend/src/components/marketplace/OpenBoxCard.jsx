@@ -3,6 +3,7 @@ import { ShieldCheck, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import ConditionScoreBadge from '../ui/ConditionScoreBadge';
+import { getImageUrl } from '../../utils/imageUtils';
 
 export default function OpenBoxCard({ product }) {
   const navigate = useNavigate();
@@ -11,10 +12,15 @@ export default function OpenBoxCard({ product }) {
   const productId = product._id || product.id;
   const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
 
+  const handleProductClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(`/relife/product/${productId}`);
+  };
+
   return (
     <div 
       className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col h-full"
-      onClick={() => navigate(`/relife/product/${productId}`)}
+      onClick={handleProductClick}
     >
       {/* Premium Amazon Certified Open Box Badge */}
       <div className="bg-[#111111] text-white flex items-center px-3 py-1.5 shadow-sm relative z-10 border-b-2 border-[#FF9900]">
@@ -24,7 +30,7 @@ export default function OpenBoxCard({ product }) {
       </div>
 
       <div className="h-56 bg-gray-50 flex items-center justify-center p-6 relative">
-        <img src={product.image} alt={product.name} className="max-h-full object-contain group-hover:scale-105 transition-transform mix-blend-multiply" />
+        <img src={getImageUrl(product.coverImage || product.image)} alt={product.name} className="max-h-full object-contain group-hover:scale-105 transition-transform mix-blend-multiply" />
         {/* Discount Badge */}
         <div className="absolute top-3 right-3 bg-[#CC0C39] text-white text-xs font-bold px-2 py-1 rounded-sm shadow-sm">
           {product.discountPercent}% OFF

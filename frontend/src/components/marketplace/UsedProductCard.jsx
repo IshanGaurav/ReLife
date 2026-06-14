@@ -3,6 +3,7 @@ import { Star, ShieldCheck, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import ConditionScoreBadge from '../ui/ConditionScoreBadge';
+import { getImageUrl } from '../../utils/imageUtils';
 
 export default function UsedProductCard({ product }) {
   const navigate = useNavigate();
@@ -11,13 +12,22 @@ export default function UsedProductCard({ product }) {
   const productId = product._id || product.id;
   const isInCart = cartItems.some(item => item.productId === productId || item._id === productId);
 
+  const handleProductClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    navigate(`/relife/product/${productId}`);
+  };
+
   return (
     <div 
       className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col h-full"
       onClick={() => navigate(`/relife/product/${productId}`)}
     >
-      <div className="h-56 bg-white flex items-center justify-center p-6 relative rounded-t-lg border-b border-gray-100">
-        <img src={product.image} alt={product.name} className="max-h-full object-contain group-hover:scale-105 transition-transform" />
+      <div className="relative p-6 cursor-pointer" onClick={handleProductClick}>
+        <img 
+          src={getImageUrl(product.coverImage || product.image)} 
+          alt={product.name} 
+          className="w-full h-48 object-contain mix-blend-multiply"
+        />
       </div>
 
       <div className="p-4 flex flex-col flex-1">
@@ -51,12 +61,16 @@ export default function UsedProductCard({ product }) {
             Ships from {product.distance} away
           </div>
           
-          {product.passportAvailable ? (
+          {product.passportAvailable && (
             <div className="flex items-center text-xs text-blue-700 font-bold bg-blue-50 w-fit px-2 py-0.5 rounded border border-blue-100" onClick={(e) => { e.stopPropagation(); navigate(`/relife/passport/${productId}`); }}>
-              <ShieldCheck className="w-3.5 h-3.5 mr-1" /> Passport Verified
+              <ShieldCheck className="w-3 h-3 mr-1" /> Passport Verified
             </div>
-          ) : (
-            <div className="h-5"></div>
+          )}
+          
+          {product.amazonVerified && (
+            <div className="flex items-center text-xs text-green-700 font-bold bg-green-50 w-fit px-2 py-0.5 rounded border border-green-100">
+              <ShieldCheck className="w-3 h-3 mr-1" /> Amazon Origin Verified
+            </div>
           )}
         </div>
 

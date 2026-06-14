@@ -1,10 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, MapPin, CreditCard, Leaf, Loader2 } from 'lucide-react';
 import { placeOrderApi } from '../api/client';
 import { useMode } from '../context/ModeContext';
+
+const AnimatedCounter = ({ start, end, duration = 1500 }) => {
+  const [count, setCount] = useState(start);
+
+  useEffect(() => {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      setCount(Math.floor(progress * (end - start) + start));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        setCount(end);
+      }
+    };
+    window.requestAnimationFrame(step);
+  }, [start, end, duration]);
+
+  return <span className="tabular-nums transition-all">{count}</span>;
+};
 
 export default function Checkout() {
   const { cartItems, cartTotal, clearCart } = useCart();
@@ -194,17 +215,37 @@ export default function Checkout() {
               <p className="text-[#565959] text-lg mb-8">Confirmation will be sent to your email.</p>
               
               <div className="bg-[#F7FAFA] border border-[#D5D9D9] rounded-lg p-6 max-w-lg mx-auto mb-8">
-                <div className="flex items-center justify-center mb-4">
+                <div className="flex items-center justify-center mb-6 border-b border-[#D5D9D9] pb-4">
                   <Leaf className="w-8 h-8 text-[#16a34a] mr-2" />
-                  <h3 className="text-xl font-bold text-[#16a34a]">Sustainability Impact</h3>
+                  <h3 className="text-xl font-bold text-[#16a34a]">Green Credit Wallet</h3>
                 </div>
-                <p className="text-[#0F1111] font-bold text-lg mb-1">
-                  +{impactResult ? impactResult.creditsEarned : 0} Green Credits Earned
-                </p>
-                <p className="text-[#565959] text-sm">
-                  You successfully rescued products from e-waste and helped offset {impactResult ? impactResult.co2Saved : 0} kg of CO₂
-                  {impactResult && impactResult.wasteDiverted > 0 ? ` while diverting ${impactResult.wasteDiverted} kg of waste` : ''}.
-                </p>
+                
+                <div className="space-y-3 text-left">
+                  <div className="flex justify-between items-center text-[#565959] text-lg">
+                    <span>Previous Balance:</span>
+                    <span className="font-bold">{impactResult ? impactResult.previousBalance : 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[#16a34a] text-lg font-bold bg-green-50 p-2 rounded">
+                    <span>Credits Earned:</span>
+                    <span>+{impactResult ? impactResult.creditsEarned : 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[#0F1111] text-xl font-bold border-t border-[#D5D9D9] pt-3 mt-2">
+                    <span>Current Balance:</span>
+                    <span className="text-[#FF9900]">
+                      <AnimatedCounter 
+                        start={impactResult ? impactResult.previousBalance : 0} 
+                        end={impactResult ? impactResult.newBalance : 0} 
+                      />
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-[#D5D9D9]">
+                  <p className="text-[#565959] text-sm text-center">
+                    You successfully rescued {impactResult && impactResult.itemsReused > 0 ? impactResult.itemsReused : 1} product{impactResult && impactResult.itemsReused !== 1 ? 's' : ''} from e-waste!
+                    <br/>Estimated CO₂ saved: <span className="font-bold">{impactResult ? impactResult.co2Saved : 0} kg</span>
+                  </p>
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">

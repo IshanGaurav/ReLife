@@ -90,7 +90,7 @@ export default function AmazonHome() {
                 </div>
                 <p className="text-sm font-medium text-amazon-blue group-hover:text-amazon-orange truncate" title={prod.name}>{prod.name}</p>
                 <div className="flex items-center text-yellow-500 my-1">
-                  {[...Array(Math.floor(prod.rating))].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+                  {[...Array(Math.floor(prod.rating || 0))].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
                   <span className="text-[#007185] text-xs ml-1 font-medium">{prod.reviews}</span>
                 </div>
                 <div className="flex items-end mt-1">

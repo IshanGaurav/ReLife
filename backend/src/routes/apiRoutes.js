@@ -6,17 +6,24 @@ import {
   getRelifeProductById,
   getRecommendationsForAsin,
   searchAllProducts,
-  getCrossMarketRecommendations
+  getCrossMarketRecommendations,
+  getMyRelifeListings,
+  deleteRelifeListing
 } from '../controllers/productController.js';
 import { getSellerDashboard } from '../controllers/sellerController.js';
 import { checkout, getMyOrders } from '../controllers/orderController.js';
 import { getLeaderboard } from '../controllers/leaderboardController.js';
-import { getSustainabilityData } from '../controllers/sustainabilityController.js';
+import { getSustainabilityData, submitCircularAction } from '../controllers/sustainabilityController.js';
 import { getTransactions, getCreditBalance } from '../controllers/creditController.js';
 import { getCart, addToCart, removeFromCart, updateCartQuantity, clearCart } from '../controllers/cartController.js';
+import { getNotifications, markAsRead } from '../controllers/notificationController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
+
+// Notifications
+router.get('/notifications', protect, getNotifications);
+router.put('/notifications/:id/read', protect, markAsRead);
 
 // Amazon Products
 router.get('/products', getAmazonProducts);
@@ -24,7 +31,9 @@ router.get('/products/:id', getAmazonProductById);
 
 // ReLife Products
 router.get('/relife-products', getRelifeProducts);
+router.get('/relife-products/my-listings', protect, getMyRelifeListings);
 router.get('/relife-products/:id', getRelifeProductById);
+router.delete('/relife-products/:id', protect, deleteRelifeListing);
 
 // Recommendations & Search
 router.get('/recommendations/:asin', getRecommendationsForAsin);
@@ -38,6 +47,7 @@ router.get('/seller/dashboard/:sellerId', getSellerDashboard);
 router.post('/orders/checkout', protect, checkout);
 router.get('/orders/my-orders', protect, getMyOrders);
 router.get('/sustainability/dashboard', protect, getSustainabilityData);
+router.post('/sustainability/circular-action', protect, submitCircularAction);
 
 // Green Credits
 router.get('/credits/transactions', protect, getTransactions);

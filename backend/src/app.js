@@ -18,7 +18,10 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', userRouter);
 
 // New unified API Router for the MongoDB Migration
+import uploadRoutes from './routes/uploadRoutes.js';
+
 app.use('/api/v2', apiRouter);
+app.use('/api/v2', uploadRoutes);
 
 // Global Error Handler
 app.use(errorMiddleware);
