@@ -13,13 +13,15 @@ import {
 import { getSellerDashboard } from '../controllers/sellerController.js';
 import { checkout, getMyOrders } from '../controllers/orderController.js';
 import { getLeaderboard } from '../controllers/leaderboardController.js';
-import { getSustainabilityData, submitCircularAction } from '../controllers/sustainabilityController.js';
+import { getSustainabilityData, submitCircularAction, inspectImageWithAI } from '../controllers/sustainabilityController.js';
 import { getTransactions, getCreditBalance } from '../controllers/creditController.js';
 import { getCart, addToCart, removeFromCart, updateCartQuantity, clearCart } from '../controllers/cartController.js';
 import { getNotifications, markAsRead } from '../controllers/notificationController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import multer from 'multer';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Notifications
 router.get('/notifications', protect, getNotifications);
@@ -48,6 +50,7 @@ router.post('/orders/checkout', protect, checkout);
 router.get('/orders/my-orders', protect, getMyOrders);
 router.get('/sustainability/dashboard', protect, getSustainabilityData);
 router.post('/sustainability/circular-action', protect, submitCircularAction);
+router.post('/sustainability/ai-inspect', protect, upload.single('image'), inspectImageWithAI);
 
 // Green Credits
 router.get('/credits/transactions', protect, getTransactions);

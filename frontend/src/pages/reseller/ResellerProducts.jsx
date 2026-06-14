@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, CheckCircle, ArrowRight, Camera, FileText, Settings, X, ShieldCheck, ShoppingBag, Info, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getMyOrdersApi, submitCircularActionApi, uploadImagesApi } from '../../api/client';
+import { getMyOrdersApi, submitCircularActionApi, uploadImagesApi, inspectImageWithAIApi } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
 export default function ResellerProducts() {
@@ -129,13 +129,18 @@ export default function ResellerProducts() {
 
   const removeFile = (id) => setFiles(files.filter(f => f.id !== id));
 
-  const simulateUpload = () => {
+  const [aiError, setAiError] = useState(null);
+
+  const startAIInspection = async () => {
     if (files.length === 0) {
       alert("Please upload at least one photo.");
       return;
     }
+    setAiError(null);
     setIsAnalyzing(true);
     setLoadingPhase(0);
+    
+    // Animate loading text just for UX
     let currentPhase = 0;
     const interval = setInterval(() => {
       currentPhase++;
@@ -143,20 +148,34 @@ export default function ResellerProducts() {
         setLoadingPhase(currentPhase);
       } else {
         clearInterval(interval);
-        setIsAnalyzing(false);
-        setResult({
-          score: 92,
-          disposition: 'Excellent',
-          reasoning: 'Minor cosmetic scratches on the back casing, but functionally intact.',
-          suggestedPrice: selectedOrder ? Math.floor(selectedOrder.price * 0.65) : 48500,
-          scratches: 1,
-          damage: 'None',
-          expectedLifespan: '4-5 Years',
-          model: selectedOrder?.name || 'Unknown Product'
-        });
-        setStep(3);
       }
     }, 1500);
+
+    try {
+      // Send the first file to AI service
+      const aiResponse = await inspectImageWithAIApi(files[0].file);
+      clearInterval(interval);
+      setIsAnalyzing(false);
+      
+      const aiData = aiResponse.data;
+      setResult({
+        score: aiData.score,
+        disposition: aiData.disposition,
+        reasoning: aiData.reasoning,
+        suggestedPrice: selectedOrder ? Math.floor(selectedOrder.price * (aiData.score / 100) * 0.8) : 48500, // Price factoring health
+        scratches: aiData.scratches,
+        damage: aiData.damage,
+        expectedLifespan: aiData.expectedLifespan,
+        model: selectedOrder?.name || 'Unknown Product',
+        rawTelemetry: aiData.rawTelemetry,
+        suggestedAction: aiData.suggestedAction
+      });
+      setStep(3);
+    } catch (error) {
+      clearInterval(interval);
+      setIsAnalyzing(false);
+      setAiError(error.message || "Failed to inspect image.");
+    }
   };
 
   const handleAction = async (actionType) => {
@@ -178,6 +197,9 @@ export default function ResellerProducts() {
         healthScore: result.score,
         conditionLabel: result.disposition,
         suggestedPrice: result.suggestedPrice,
+        confidence: result.rawTelemetry?.confidence,
+        damagePercentage: result.rawTelemetry?.damagePercentage,
+        recommendation: result.suggestedAction,
         image: selectedOrder.image,
         category: 'Electronics', // Mock category
         sellerImages
@@ -349,9 +371,16 @@ export default function ResellerProducts() {
                 </div>
               )}
 
+              {aiError && (
+                <div className="mb-4 bg-red-50 text-red-700 p-4 rounded border border-red-200 font-bold flex items-center">
+                  <AlertTriangle className="w-5 h-5 mr-2" />
+                  {aiError}
+                </div>
+              )}
+
               <div className="pt-6 border-t border-[#D5D9D9] flex justify-end">
                 <button 
-                  onClick={simulateUpload}
+                  onClick={startAIInspection}
                   disabled={isAnalyzing || files.length === 0}
                   className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full px-8 py-2.5 font-bold text-[#0F1111] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                 >

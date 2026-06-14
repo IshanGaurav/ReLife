@@ -3,6 +3,8 @@ import { GreenCreditTransaction } from '../models/GreenCreditTransaction.js';
 import { CircularAction } from '../models/CircularAction.js';
 import { RelifeProduct } from '../models/RelifeProduct.js';
 import { User } from '../models/User.js';
+import axios from 'axios';
+import FormData from 'form-data';
 
 export const getSustainabilityData = async (req, res) => {
   try {
@@ -112,6 +114,9 @@ export const submitCircularAction = async (req, res) => {
       healthScore,
       conditionLabel,
       suggestedPrice,
+      confidence,
+      damagePercentage,
+      recommendation,
       image,
       category,
       sellerImages
@@ -204,6 +209,12 @@ export const submitCircularAction = async (req, res) => {
         amazonVerified: true,
         passportAvailable: true,
         aiVerified: true,
+        healthScore: healthScore,
+        condition: conditionLabel,
+        recommendation: recommendation,
+        confidence: confidence,
+        damagePercentage: damagePercentage,
+        inspectionTimestamp: new Date(),
         listingOwnerId: userId,
         sourceOrderId,
         sourceItemId,
@@ -257,5 +268,78 @@ export const submitCircularAction = async (req, res) => {
   } catch (error) {
     console.error('CIRCULAR ACTION ERROR:', error);
     res.status(500).json({ message: 'Failed to process circular action', error: error.message });
+  }
+};
+
+export const inspectImageWithAI = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image provided for AI inspection.' });
+    }
+
+    const formData = new FormData();
+    formData.append('file', req.file.buffer, req.file.originalname);
+
+    let aiResponse;
+    try {
+      aiResponse = await axios.post('http://localhost:8000/predict', formData, {
+        headers: {
+          ...formData.getHeaders()
+        },
+        timeout: 10000 // 10 second timeout
+      });
+    } catch (aiError) {
+      console.error('AI Service Error:', aiError.message);
+      // Return 503 Service Unavailable so the frontend knows the AI is offline and can prompt the user to retry
+      return res.status(503).json({ 
+        message: 'AI Inspection Service is currently unreachable. Please try again later.',
+        error: aiError.message
+      });
+    }
+
+    const { confidence, damage_percentage } = aiResponse.data;
+
+    // Calculate score and metrics
+    const healthScore = Math.max(0, Math.min(100, Math.floor(100 - damage_percentage)));
+    
+    let disposition = 'Good';
+    if (healthScore >= 90) disposition = 'Like New';
+    else if (healthScore >= 75) disposition = 'Excellent';
+    else if (healthScore >= 60) disposition = 'Good';
+    else if (healthScore >= 40) disposition = 'Fair';
+    else disposition = 'Poor';
+
+    let expectedLifespan = '3-4 Years';
+    if (healthScore >= 90) expectedLifespan = '5+ Years';
+    else if (healthScore >= 75) expectedLifespan = '4-5 Years';
+    else if (healthScore >= 60) expectedLifespan = '3-4 Years';
+    else if (healthScore >= 40) expectedLifespan = '1-2 Years';
+    else expectedLifespan = '< 1 Year';
+
+    // AI suggestion for Circular Action
+    let suggestedAction = 'RESELL';
+    if (healthScore < 40) suggestedAction = 'RECYCLE';
+    else if (healthScore < 60) suggestedAction = 'REFURBISH';
+
+    res.status(200).json({
+      success: true,
+      data: {
+        score: healthScore,
+        disposition,
+        reasoning: `AI detected ${damage_percentage.toFixed(2)}% damage. Confidence: ${confidence.toFixed(2)}%.`,
+        scratches: Math.floor(damage_percentage / 10), // mock stat
+        damage: damage_percentage > 20 ? 'Visible' : 'Minimal',
+        expectedLifespan,
+        suggestedAction,
+        rawTelemetry: {
+          confidence,
+          damagePercentage: damage_percentage
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('AI INSPECTION CONTROLLER ERROR:', error);
+    res.status(500).json({ message: 'Failed to complete AI inspection', error: error.message });
   }
 };

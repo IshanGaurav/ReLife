@@ -136,6 +136,20 @@ export const uploadImagesApi = async (files) => {
   return response.data.images.map(img => img.url); // returns array of URLs
 };
 
+export const inspectImageWithAIApi = async (file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  try {
+    const response = await api.post('/v2/sustainability/ai-inspect', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { message: error.message };
+  }
+};
+
 export const deleteRelifeListingApi = async (id) => {
   try {
     const res = await api.delete(`/v2/relife-products/${id}`);

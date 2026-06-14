@@ -220,6 +220,17 @@ export default function Passport() {
                  </div>
                ))}
              </div>
+
+             {passportData?.aiTelemetry && (
+               <div className="mt-4 p-4 bg-purple-50 border border-purple-100 rounded-lg">
+                 <h5 className="text-xs font-bold text-purple-900 uppercase tracking-wider mb-2">Raw AI Telemetry</h5>
+                 <div className="grid grid-cols-2 gap-2 text-sm text-purple-800">
+                   <div><strong>Confidence:</strong> {(passportData.aiTelemetry.confidence).toFixed(2)}%</div>
+                   <div><strong>Damage Detected:</strong> {(passportData.aiTelemetry.damagePercentage).toFixed(2)}%</div>
+                   <div className="col-span-2"><strong>AI Recommendation:</strong> {passportData.aiTelemetry.recommendation}</div>
+                 </div>
+               </div>
+             )}
           </Card>
         </div>
       </div>

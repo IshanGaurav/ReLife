@@ -72,6 +72,12 @@ export default function UsedProductCard({ product }) {
               <ShieldCheck className="w-3 h-3 mr-1" /> Amazon Origin Verified
             </div>
           )}
+
+          {product.aiVerified && (
+            <div className="flex items-center text-xs text-purple-700 font-bold bg-purple-50 w-fit px-2 py-0.5 rounded border border-purple-100">
+              <ShieldCheck className="w-3 h-3 mr-1" /> AI Inspected ({product.healthScore}/100)
+            </div>
+          )}
         </div>
 
         {/* Buy Now Button */}

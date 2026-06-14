@@ -114,6 +114,11 @@ export const generatePassport = (product) => {
     ownership,
     repairs,
     specs,
-    inspection
+    inspection,
+    aiTelemetry: product.aiVerified ? {
+      confidence: product.confidence,
+      damagePercentage: product.damagePercentage,
+      recommendation: product.recommendation
+    } : null
   };
 };

@@ -46,7 +46,7 @@ export default function OpenBoxCard({ product }) {
           </div>
           {product.aiVerified && (
             <div className="text-[10px] font-bold text-[#007185] flex items-center bg-white px-1.5 py-1 rounded border border-[#D5D9D9]">
-              <ShieldCheck className="w-3 h-3 mr-0.5" /> AI Verified
+              <ShieldCheck className="w-3 h-3 mr-0.5" /> AI Verified ({product.healthScore || product.conditionScore}/100)
             </div>
           )}
         </div>
