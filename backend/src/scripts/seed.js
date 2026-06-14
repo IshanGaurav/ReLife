@@ -155,11 +155,10 @@ const rawOpenBoxProducts = [
 ];
 
 const getConditionLabel = (score) => {
-  if (score >= 95) return 'Premium';
-  if (score >= 90) return 'Excellent';
-  if (score >= 80) return 'Very Good';
-  if (score >= 70) return 'Good';
-  return 'Acceptable';
+  if (score >= 80) return 'Like New';
+  if (score >= 50) return 'Refurbished';
+  if (score >= 30) return 'Donate';
+  return 'Reject / Recycle';
 };
 
 const sellerNames = ['TechRenew Electronics', 'ReLife Certified Seller', 'Gadget Restore', 'GreenTech Store', 'Amazon Warehouse'];

@@ -128,25 +128,22 @@ export const submitCircularAction = async (req, res) => {
       return res.status(400).json({ message: 'This item has already been processed in the Circular Economy Hub.' });
     }
 
-    let sourceOrder = null;
-    let orderItem = null;
+    let sourceOrder = await Order.findById(sourceOrderId);
+    if (!sourceOrder) {
+      return res.status(404).json({ message: 'Source order not found.' });
+    }
+    
+    let orderItem = sourceOrder.items.id(sourceItemId) || sourceOrder.items.find(item => item._id.toString() === sourceItemId.toString());
+    if (!orderItem) {
+      return res.status(404).json({ message: 'Source item not found in order.' });
+    }
+    
+    // Prevent duplicate actions
+    if (orderItem.resaleStatus && orderItem.resaleStatus !== 'not_listed') {
+      return res.status(400).json({ message: `This item has already been processed (${orderItem.resaleStatus}).` });
+    }
 
     if (actionType === 'RESELL') {
-      sourceOrder = await Order.findById(sourceOrderId);
-      if (!sourceOrder) {
-        return res.status(404).json({ message: 'Source order not found.' });
-      }
-      orderItem = sourceOrder.items.id(sourceItemId) || sourceOrder.items.find(item => item._id.toString() === sourceItemId.toString());
-      if (!orderItem) {
-        return res.status(404).json({ message: 'Source item not found in order.' });
-      }
-      if (orderItem.resaleStatus === 'listed') {
-        return res.status(400).json({ message: 'This item is already listed in the marketplace.' });
-      }
-      if (orderItem.resaleStatus === 'sold') {
-        return res.status(400).json({ message: 'This item has already been sold.' });
-      }
-      
       // Explicit duplicate marketplace listing guard
       const existingListing = await RelifeProduct.findOne({ sourceOrderId, sourceItemId, status: 'ACTIVE' });
       if (existingListing) {
@@ -235,10 +232,11 @@ export const submitCircularAction = async (req, res) => {
     // 4. Save Everything (now that validations passed)
     if (actionType === 'RESELL') {
       await relifeProduct.save();
-      orderItem.resaleStatus = 'listed';
       orderItem.resaleListingId = relifeProduct.originalId;
-      await sourceOrder.save();
     }
+    
+    orderItem.resaleStatus = actionType === 'RESELL' ? 'listed' : actionType.toLowerCase();
+    await sourceOrder.save();
 
     await newTransaction.save();
     
@@ -302,27 +300,36 @@ export const inspectImageWithAI = async (req, res) => {
 
     const { confidence, damage_percentage } = aiResponseData;
 
-    // Calculate score and metrics
+    // Calculate score and metrics using Single Source of Truth
     const healthScore = Math.max(0, Math.min(100, Math.floor(100 - damage_percentage)));
     
-    let disposition = 'Good';
-    if (healthScore >= 90) disposition = 'Like New';
-    else if (healthScore >= 75) disposition = 'Excellent';
-    else if (healthScore >= 60) disposition = 'Good';
-    else if (healthScore >= 40) disposition = 'Fair';
-    else disposition = 'Poor';
+    let disposition = '';
+    let suggestedAction = '';
+
+    if (healthScore >= 80) {
+      disposition = 'Like New';
+      suggestedAction = 'RESELL';
+    } else if (healthScore >= 50) {
+      disposition = 'Refurbished';
+      suggestedAction = 'REFURBISH';
+    } else if (healthScore >= 30) {
+      disposition = 'Donate';
+      suggestedAction = 'DONATE';
+    } else {
+      disposition = 'Reject / Recycle';
+      suggestedAction = 'RECYCLE';
+    }
 
     let expectedLifespan = '3-4 Years';
-    if (healthScore >= 90) expectedLifespan = '5+ Years';
-    else if (healthScore >= 75) expectedLifespan = '4-5 Years';
-    else if (healthScore >= 60) expectedLifespan = '3-4 Years';
-    else if (healthScore >= 40) expectedLifespan = '1-2 Years';
+    if (healthScore >= 80) expectedLifespan = '5+ Years';
+    else if (healthScore >= 50) expectedLifespan = '3-4 Years';
+    else if (healthScore >= 30) expectedLifespan = '1-2 Years';
     else expectedLifespan = '< 1 Year';
 
-    // AI suggestion for Circular Action
-    let suggestedAction = 'RESELL';
-    if (healthScore < 40) suggestedAction = 'RECYCLE';
-    else if (healthScore < 60) suggestedAction = 'REFURBISH';
+    // AI Pricing Logic
+    const confidence_percent = confidence > 1 ? confidence : confidence * 100;
+    const risk_score = (damage_percentage * 0.7) + ((100 - confidence_percent) * 0.3);
+    const discount = Math.min(risk_score, 50);
 
     res.status(200).json({
       success: true,
@@ -331,9 +338,10 @@ export const inspectImageWithAI = async (req, res) => {
         disposition,
         reasoning: `AI detected ${damage_percentage.toFixed(2)}% damage. Confidence: ${confidence.toFixed(2)}%.`,
         scratches: Math.floor(damage_percentage / 10), // mock stat
-        damage: damage_percentage > 20 ? 'Visible' : 'Minimal',
+        damage: damage_percentage >= 20 ? 'Visible' : 'Minimal',
         expectedLifespan,
         suggestedAction,
+        discount,
         rawTelemetry: {
           confidence,
           damagePercentage: damage_percentage

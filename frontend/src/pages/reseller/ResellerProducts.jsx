@@ -49,12 +49,7 @@ export default function ResellerProducts() {
               const orderDate = new Date(order.createdAt);
               const ageInYears = (new Date() - orderDate) / (1000 * 60 * 60 * 24 * 365.25);
               
-              let status = 'Eligible';
-              if (item.resaleStatus === 'sold') {
-                status = 'SOLD';
-              } else if (item.resaleStatus === 'listed') {
-                status = 'LISTED';
-              }
+              let status = item.resaleStatus || 'not_listed';
 
               purchasedItems.push({
                 ...item,
@@ -75,7 +70,7 @@ export default function ResellerProducts() {
               image: 'https://m.media-amazon.com/images/I/81SigpJN1KL._SX679_.jpg',
               orderId: 'AMZ-8829-112',
               orderDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 180).toISOString(),
-              status: 'Eligible',
+              status: 'not_listed',
               ageInYears: 0.5
             });
             purchasedItems.push({
@@ -85,7 +80,7 @@ export default function ResellerProducts() {
               image: 'https://m.media-amazon.com/images/I/61vJtKbAssL._SX679_.jpg',
               orderId: 'AMZ-9938-221',
               orderDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString(),
-              status: 'Already Listed',
+              status: 'listed',
               ageInYears: 0.1
             });
           }
@@ -102,7 +97,7 @@ export default function ResellerProducts() {
   }, []);
 
   const handleSelectOrder = (order) => {
-    if (order.status === 'Eligible') {
+    if (order.status === 'not_listed') {
       setSelectedOrder(order);
       setStep(2);
     }
@@ -137,6 +132,7 @@ export default function ResellerProducts() {
       return;
     }
     setAiError(null);
+    setSubmitError(null);
     setIsAnalyzing(true);
     setLoadingPhase(0);
     
@@ -158,11 +154,12 @@ export default function ResellerProducts() {
       setIsAnalyzing(false);
       
       const aiData = aiResponse.data;
+      const discount = aiData.discount || 0;
       setResult({
         score: aiData.score,
         disposition: aiData.disposition,
         reasoning: aiData.reasoning,
-        suggestedPrice: selectedOrder ? Math.floor(selectedOrder.price * (aiData.score / 100) * 0.8) : 48500, // Price factoring health
+        suggestedPrice: selectedOrder ? Math.floor(selectedOrder.price * (1 - discount / 100)) : 48500,
         scratches: aiData.scratches,
         damage: aiData.damage,
         expectedLifespan: aiData.expectedLifespan,
@@ -255,7 +252,7 @@ export default function ResellerProducts() {
               ) : (
                 <div className="space-y-4">
                   {orders.map((order, idx) => (
-                    <div key={idx} className={`border rounded-lg p-4 flex flex-col md:flex-row items-center justify-between ${order.status === 'Eligible' ? 'border-[#D5D9D9] hover:border-[#FF9900] bg-white' : 'border-gray-200 bg-gray-50 opacity-75'}`}>
+                    <div key={idx} className={`border rounded-lg p-4 flex flex-col md:flex-row items-center justify-between ${order.status === 'not_listed' ? 'border-[#D5D9D9] hover:border-[#FF9900] bg-white' : 'border-gray-200 bg-gray-50 opacity-75'}`}>
                       <div className="flex items-center w-full md:w-auto mb-4 md:mb-0">
                         <img src={order.image || 'https://via.placeholder.com/150'} alt={order.name} className="w-20 h-20 object-contain mix-blend-multiply bg-white border border-gray-100 rounded p-1 mr-6" />
                         <div>
@@ -269,14 +266,14 @@ export default function ResellerProducts() {
                       </div>
                       
                       <div className="flex-shrink-0 w-full md:w-auto text-right">
-                        {order.status === 'Eligible' ? (
+                        {order.status === 'not_listed' ? (
                           <button 
                             onClick={() => handleSelectOrder(order)}
                             className="w-full md:w-auto bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full px-6 py-2 font-bold text-[#0F1111] shadow-sm transition-colors"
                           >
-                            Sell on ReLife
+                            Start Analysis
                           </button>
-                        ) : order.status === 'LISTED' ? (
+                        ) : order.status === 'listed' ? (
                           <div className="flex flex-col items-end">
                             <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold mb-2 uppercase">
                               Listed
@@ -288,7 +285,7 @@ export default function ResellerProducts() {
                               View Listing
                             </button>
                           </div>
-                        ) : order.status === 'SOLD' ? (
+                        ) : order.status === 'sold' ? (
                           <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-bold uppercase">
                             Sold
                           </span>
@@ -412,6 +409,7 @@ export default function ResellerProducts() {
                 <div className="bg-[#F7FAFA] border border-[#D5D9D9] p-4 rounded-lg text-center">
                   <p className="text-xs font-bold text-[#565959] uppercase tracking-wider mb-1">Health Score</p>
                   <p className="text-4xl font-extrabold text-[#0F1111]">{result.score}<span className="text-lg text-[#565959]">/100</span></p>
+                  <div className="text-[10px] text-[#565959] mt-1 font-mono">100 - {result.rawTelemetry?.damagePercentage?.toFixed(0) || 0}% Damage</div>
                   <div className="mt-2 text-sm text-[#007185] font-bold">{result.disposition}</div>
                 </div>
                 <div className="bg-[#F7FAFA] border border-[#D5D9D9] p-4 rounded-lg flex flex-col justify-center">
@@ -443,7 +441,8 @@ export default function ResellerProducts() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
                 {/* Action 1: Resell */}
-                <div className="border border-[#D5D9D9] hover:border-[#FF9900] rounded-lg p-6 flex flex-col h-full bg-white transition-colors relative overflow-hidden">
+                <div title={result.score < 80 ? "Health Score must be ≥ 80" : ""} className={`border ${result.suggestedAction === 'RESELL' ? 'border-[#FF9900] bg-yellow-50' : 'border-[#D5D9D9] bg-white'} ${result.score < 80 ? 'opacity-70 bg-gray-50' : 'hover:border-[#FF9900]'} rounded-lg p-6 flex flex-col h-full transition-colors relative overflow-hidden`}>
+                  {result.suggestedAction === 'RESELL' && <div className="absolute top-0 right-0 bg-[#FF9900] text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">AI Recommended</div>}
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-bold text-lg text-[#0F1111]">Resell on ReLife</h4>
                     <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">+35 Credits</span>
@@ -453,17 +452,19 @@ export default function ResellerProducts() {
                     <li className="flex items-center"><CheckCircle className="w-4 h-4 text-[#16a34a] mr-2"/> Receive money from buyer</li>
                     <li className="flex items-center"><CheckCircle className="w-4 h-4 text-[#16a34a] mr-2"/> Amazon Verified Badge</li>
                   </ul>
+                  {result.score < 80 && <div className="text-xs text-red-600 mb-2 font-bold flex items-center"><Info className="w-3 h-3 mr-1"/> Health Score must be ≥ 80</div>}
                   <button 
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || result.score < 80}
                     onClick={() => handleAction('RESELL')}
-                    className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full py-2 font-bold text-[#0F1111] shadow-sm disabled:opacity-50"
+                    className={`w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full py-2 font-bold text-[#0F1111] shadow-sm disabled:opacity-50 ${result.score < 80 ? 'cursor-not-allowed' : ''}`}
                   >
                     List for Sale
                   </button>
                 </div>
 
                 {/* Action 2: Refurbish */}
-                <div className="border border-[#D5D9D9] hover:border-[#007185] rounded-lg p-6 flex flex-col h-full bg-white transition-colors relative overflow-hidden">
+                <div title={result.score < 50 ? "Health Score must be ≥ 50" : ""} className={`border ${result.suggestedAction === 'REFURBISH' ? 'border-[#007185] bg-blue-50' : 'border-[#D5D9D9] bg-white'} ${result.score < 50 ? 'opacity-70 bg-gray-50' : 'hover:border-[#007185]'} rounded-lg p-6 flex flex-col h-full transition-colors relative overflow-hidden`}>
+                  {result.suggestedAction === 'REFURBISH' && <div className="absolute top-0 right-0 bg-[#007185] text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">AI Recommended</div>}
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-bold text-lg text-[#0F1111]">Amazon Refurbishment</h4>
                     <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">+50 Credits</span>
@@ -473,18 +474,19 @@ export default function ResellerProducts() {
                     <li className="flex items-center"><CheckCircle className="w-4 h-4 text-[#16a34a] mr-2"/> Extend product lifespan</li>
                     <li className="flex items-center"><CheckCircle className="w-4 h-4 text-[#16a34a] mr-2"/> Free shipping to center</li>
                   </ul>
+                  {result.score < 50 && <div className="text-xs text-red-600 mb-2 font-bold flex items-center"><Info className="w-3 h-3 mr-1"/> Health Score must be ≥ 50</div>}
                   <button 
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || result.score < 50}
                     onClick={() => handleAction('REFURBISH')}
-                    className="w-full bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full py-2 font-bold text-[#0F1111] shadow-sm disabled:opacity-50"
+                    className={`w-full bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full py-2 font-bold text-[#0F1111] shadow-sm disabled:opacity-50 ${result.score < 50 ? 'cursor-not-allowed' : ''}`}
                   >
                     Send for Refurbishment
                   </button>
                 </div>
 
                 {/* Action 3: Recycle */}
-                <div className="border border-[#D5D9D9] hover:border-[#16a34a] rounded-lg p-6 flex flex-col h-full bg-white transition-colors relative overflow-hidden">
-                  <div className="absolute top-0 right-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">Environmental Hero</div>
+                <div className={`border ${result.suggestedAction === 'RECYCLE' ? 'border-[#16a34a] bg-green-50' : 'border-[#D5D9D9] bg-white'} hover:border-[#16a34a] rounded-lg p-6 flex flex-col h-full transition-colors relative overflow-hidden`}>
+                  {result.suggestedAction === 'RECYCLE' && <div className="absolute top-0 right-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">AI Recommended</div>}
                   <div className="flex justify-between items-start mb-2 mt-2">
                     <h4 className="font-bold text-lg text-[#0F1111]">Recycle Responsibly</h4>
                     <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">+100 Credits</span>
@@ -504,8 +506,8 @@ export default function ResellerProducts() {
                 </div>
 
                 {/* Action 4: Donate */}
-                <div className="border border-[#D5D9D9] hover:border-blue-600 rounded-lg p-6 flex flex-col h-full bg-white transition-colors relative overflow-hidden">
-                  <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">Community Champion</div>
+                <div title={result.score < 30 ? "Health Score must be ≥ 30" : ""} className={`border ${result.suggestedAction === 'DONATE' ? 'border-blue-600 bg-blue-50' : 'border-[#D5D9D9] bg-white'} ${result.score < 30 ? 'opacity-70 bg-gray-50' : 'hover:border-blue-600'} rounded-lg p-6 flex flex-col h-full transition-colors relative overflow-hidden`}>
+                  {result.suggestedAction === 'DONATE' && <div className="absolute top-0 right-0 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg">AI Recommended</div>}
                   <div className="flex justify-between items-start mb-2 mt-2">
                     <h4 className="font-bold text-lg text-[#0F1111]">Donate for Impact</h4>
                     <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-1 rounded-full">+150 Credits</span>
@@ -515,10 +517,11 @@ export default function ResellerProducts() {
                     <li className="flex items-center"><CheckCircle className="w-4 h-4 text-[#16a34a] mr-2"/> Help someone in need</li>
                     <li className="flex items-center"><CheckCircle className="w-4 h-4 text-[#16a34a] mr-2"/> Create measurable social impact</li>
                   </ul>
+                  {result.score < 30 && <div className="text-xs text-red-600 mb-2 font-bold flex items-center"><Info className="w-3 h-3 mr-1"/> Health Score must be ≥ 30</div>}
                   <button 
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || result.score < 30}
                     onClick={() => handleAction('DONATE')}
-                    className="w-full bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full py-2 font-bold text-[#0F1111] shadow-sm disabled:opacity-50"
+                    className={`w-full bg-white hover:bg-gray-50 border border-[#D5D9D9] rounded-full py-2 font-bold text-[#0F1111] shadow-sm disabled:opacity-50 ${result.score < 30 ? 'cursor-not-allowed' : ''}`}
                   >
                     Donate Device
                   </button>

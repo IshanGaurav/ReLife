@@ -11,7 +11,7 @@ const orderItemSchema = new mongoose.Schema({
   conditionScore: { type: String },
   co2Saved: { type: Number },
   greenCredits: { type: Number },
-  resaleStatus: { type: String, enum: ['not_listed', 'listed', 'sold'], default: 'not_listed' },
+  resaleStatus: { type: String, enum: ['not_listed', 'listed', 'sold', 'refurbish', 'donate', 'recycle'], default: 'not_listed' },
   resaleListingId: { type: String }
 });
 
