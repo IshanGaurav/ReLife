@@ -82,7 +82,15 @@ export default function AmazonHome() {
                 className="min-w-[200px] max-w-[200px] flex flex-col cursor-pointer group"
               >
                 <div className="bg-gray-50 h-48 rounded-sm mb-3 p-4 flex items-center justify-center overflow-hidden">
-                  <img src={prod.image} alt={prod.name} className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
+                  {console.log(`Rendering image for ${prod.name}: ${prod.image || prod.coverImage}`)}
+                  <img 
+                    src={prod.image || prod.coverImage} 
+                    alt={prod.name} 
+                    onError={(e) => {
+                      e.target.src = "/images/product-placeholder.png";
+                    }}
+                    className="max-h-full max-w-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" 
+                  />
                 </div>
                 <div className="flex items-center space-x-1 mb-1">
                   <span className="bg-red-700 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm">Deal</span>

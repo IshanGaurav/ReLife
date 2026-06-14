@@ -208,9 +208,12 @@ export default function Navbar() {
       <div className="bg-[#131921] text-white flex items-center px-4 py-2 space-x-4">
         
         {/* Logo */}
-        <Link to="/" className="flex flex-col justify-center border border-transparent hover:border-white p-1 rounded-sm mt-1">
+        <Link to="/" className="flex items-center justify-center border border-transparent hover:border-white p-1 rounded-sm mt-1">
           {mode === 'shopping' ? (
-            <span className="text-2xl font-extrabold tracking-tight leading-none">amazon<span className="text-[#FF9900]">.in</span></span>
+            <div className="flex items-end">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" alt="Amazon" className="h-7 w-auto object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+              <span className="text-white font-medium text-sm mb-1 ml-0.5">.in</span>
+            </div>
           ) : (
             <span className="text-2xl font-extrabold tracking-tight leading-none text-white">Amazon <span className="text-[#16a34a]">ReLife</span></span>
           )}

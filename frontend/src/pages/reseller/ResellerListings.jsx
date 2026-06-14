@@ -22,7 +22,7 @@ export default function ResellerListings() {
           name: p.name,
           sku: p.originalId,
           price: p.relifePrice,
-          status: p.status === 'ACTIVE' ? 'Active' : p.status === 'PENDING' ? 'Pending Inspection' : 'Sold',
+          status: p.status === 'ACTIVE' || p.status === 'active' ? 'active' : p.status === 'PENDING' || p.status === 'pending' ? 'pending' : 'sold',
           condition: p.availableUnits?.[0]?.conditionLabel || 'Good',
           score: p.conditionScore || 90,
           greenCredits: p.greenCredits || 35,
@@ -53,9 +53,9 @@ export default function ResellerListings() {
   };
 
   const filteredProducts = products.filter(p => {
-    if (activeTab === 'active') return p.status === 'Active';
-    if (activeTab === 'pending') return p.status === 'Pending Inspection';
-    if (activeTab === 'sold') return p.status === 'Sold';
+    if (activeTab === 'active') return p.status === 'active';
+    if (activeTab === 'pending') return p.status === 'pending';
+    if (activeTab === 'sold') return p.status === 'sold';
     return true;
   });
 
@@ -142,11 +142,11 @@ export default function ResellerListings() {
 
                     <div className="text-right w-32">
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                        product.status === 'Active' ? 'bg-green-100 text-green-800' :
-                        product.status === 'Pending Inspection' ? 'bg-yellow-100 text-yellow-800' :
+                        product.status === 'active' ? 'bg-green-100 text-green-800' :
+                        product.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {product.status}
+                        {product.status === 'active' ? 'Active' : product.status === 'pending' ? 'Pending Inspection' : 'Sold'}
                       </span>
                     </div>
 
@@ -154,7 +154,7 @@ export default function ResellerListings() {
                       <button className="text-[#007185] hover:text-[#C7511F] text-sm flex items-center font-medium">
                         View Passport <ExternalLink className="w-4 h-4 ml-1" />
                       </button>
-                      {product.status === 'Active' && (
+                      {product.status === 'active' && (
                         <button 
                           onClick={() => handleDelete(product.id)}
                           className="text-red-600 hover:text-red-800 text-sm flex items-center font-medium"
@@ -162,7 +162,7 @@ export default function ResellerListings() {
                           Delete Listing
                         </button>
                       )}
-                      {product.status === 'Sold' && (
+                      {product.status === 'sold' && (
                         <span className="text-[#16a34a] text-sm font-bold flex items-center mt-2">
                            ✓ Payment Received
                         </span>

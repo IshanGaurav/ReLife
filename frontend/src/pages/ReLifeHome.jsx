@@ -51,7 +51,7 @@ export default function ReLifeHome() {
           <div className="bg-white text-[#0F1111] p-6 rounded-lg shadow-xl max-w-sm w-full mt-8 md:mt-0 relative z-20">
             <h3 className="text-xl font-bold mb-2">Turn old tech into Credits</h3>
             <p className="text-sm text-[#565959] mb-4">Upload photos and our AI will instantly estimate its value, condition, and circular path.</p>
-            <Link to="/relife/sell" className="block">
+            <Link to="/reseller" className="block">
               <button className="w-full bg-[#FF9900] hover:bg-[#e38800] text-black font-bold py-3 px-4 rounded-md shadow-sm border border-[#F3A847] flex items-center justify-center transition-colors">
                 <UploadCloud className="w-5 h-5 mr-2" /> Start Selling
               </button>
