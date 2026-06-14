@@ -1,258 +1,193 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Loader2, ChevronRight, X, CheckCircle2, ShieldCheck, AlertTriangle, AlertCircle, Leaf, Users, Ruler } from 'lucide-react';
-import { getAIRecommendation } from '../../api/recommendationEngine';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
+import { Sparkles, Loader2, Send, AlertCircle } from 'lucide-react';
+import { analyzeProductWithAssistant, chatWithAssistant } from '../../api/assistantApi';
 
-const Counter = ({ from, to, duration, format = (v) => v }) => {
-  const [count, setCount] = useState(from);
+export default function AIPurchaseAssistant({ product }) {
+  const [messages, setMessages] = useState([]);
+  const [initialAnalysis, setInitialAnalysis] = useState(null);
+  const [inputValue, setInputValue] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState(null);
+  
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    let startTime;
-    let animationFrame;
+    scrollToBottom();
+  }, [messages, isTyping]);
 
-    const animate = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / (duration * 1000), 1);
-      
-      setCount(Math.floor(progress * (to - from) + from));
+  useEffect(() => {
+    if (!product) return;
 
-      if (progress < 1) {
-        animationFrame = requestAnimationFrame(animate);
+    const initializeAssistant = async () => {
+      try {
+        setIsAnalyzing(true);
+        setError(null);
+        
+        const analysis = await analyzeProductWithAssistant(product);
+        setInitialAnalysis(analysis);
+        
+        const initialMessage = {
+          role: 'assistant',
+          content: analysis.summary || "Hello! I'm your AI Purchase Assistant. How can I help you with this product?",
+          pros: analysis.pros || [],
+          cons: analysis.cons || []
+        };
+        
+        setMessages([initialMessage]);
+      } catch (err) {
+        console.error("Assistant initialization failed:", err);
+        setError(err.response?.data?.message || err.message || "AI Assistant is temporarily unavailable.");
+      } finally {
+        setIsAnalyzing(false);
       }
     };
 
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [from, to, duration]);
+    initializeAssistant();
+  }, [product]);
 
-  return <span>{format(count)}</span>;
-};
+  const handleSendMessage = async (e) => {
+    e?.preventDefault();
+    
+    if (!inputValue.trim() || isTyping) return;
 
-function DetailedAnalysisModal({ isOpen, onClose, recommendation }) {
-  const navigate = useNavigate();
+    const userMessage = { role: 'user', content: inputValue.trim() };
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsTyping(true);
+    setError(null);
 
-  if (!recommendation) return null;
+    try {
+      // The first message is the AI's generated welcome analysis.
+      // Bedrock strictly requires the first message to have role='user'.
+      // We filter out the first welcome message and pass the analysis context separately.
+      const apiMessages = messages.filter((_, idx) => idx !== 0);
+      const chatHistory = [...apiMessages, userMessage];
+      
+      const result = await chatWithAssistant(chatHistory, product, initialAnalysis);
+      
+      setMessages(prev => [...prev, { role: 'assistant', content: result.response }]);
+    } catch (err) {
+      console.error("Chat failed:", err);
+      setError(err.response?.data?.message || err.message || "Failed to send message. Please try again.");
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  if (!product) return null;
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
+    <div className="w-full my-6 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-[500px]">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 px-4 py-3 flex justify-between items-center">
+        <div className="flex items-center">
+          <Sparkles className="w-5 h-5 text-[#14b8a6] mr-2" />
+          <h2 className="text-sm font-bold text-gray-900">AI Purchase Assistant</h2>
+        </div>
+        <div className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          Powered by Amazon Bedrock
+        </div>
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-4">
+        {isAnalyzing ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-500 space-y-3">
+            <Loader2 className="w-8 h-8 text-[#14b8a6] animate-spin" />
+            <p className="text-sm font-medium">Analyzing product details...</p>
+          </div>
+        ) : error && messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-red-500 space-y-2 p-4 text-center">
+            <AlertCircle className="w-8 h-8" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        ) : (
+          messages.map((msg, idx) => (
+            <motion.div 
+              key={idx}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div 
+                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                  msg.role === 'user' 
+                    ? 'bg-[#007185] text-white rounded-br-none' 
+                    : 'bg-white border border-gray-200 text-gray-800 rounded-bl-none shadow-sm'
+                }`}
+              >
+                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                
+                {msg.role === 'assistant' && msg.pros && msg.pros.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="font-bold text-xs text-green-700 uppercase tracking-wider">Pros</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {msg.pros.map((pro, i) => <li key={i} className="text-gray-600">{pro}</li>)}
+                    </ul>
+                  </div>
+                )}
+                
+                {msg.role === 'assistant' && msg.cons && msg.cons.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="font-bold text-xs text-red-700 uppercase tracking-wider">Considerations</p>
+                    <ul className="list-disc pl-4 space-y-1">
+                      {msg.cons.map((con, i) => <li key={i} className="text-gray-600">{con}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))
+        )}
+        
+        {isTyping && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/40 z-50 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ x: '100%', opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 overflow-y-auto"
+            className="flex justify-start"
           >
-            <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-100 p-4 flex justify-between items-center z-10">
-              <div className="flex items-center text-[#14b8a6]">
-                <Sparkles className="w-5 h-5 mr-2" />
-                <h2 className="font-bold text-gray-900">AI Purchase Assistant</h2>
-              </div>
-              <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-8">
-              
-              {/* Primary Recommendation */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <div>
-                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Recommended Size</h3>
-                    <p className="text-3xl font-black text-gray-900">{recommendation.recommendedSize}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Confidence</span>
-                    <span className="text-2xl font-black text-[#14b8a6]">
-                      <Counter from={0} to={recommendation.confidence} duration={1.5} format={v => `${v}%`} />
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 rounded-xl p-4 flex items-start border border-gray-100">
-                  <CheckCircle2 className="w-5 h-5 text-[#14b8a6] mr-3 shrink-0 mt-0.5" />
-                  <p className="text-sm text-gray-700 leading-relaxed">{recommendation.reasoning}</p>
-                </div>
-
-                <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                  <span className="text-sm font-medium text-gray-600">Expected Fit Score</span>
-                  <div className="flex items-center">
-                    <span className="font-bold text-gray-900 mr-2">{recommendation.fitScore}%</span>
-                    <span className="text-xs px-2 py-1 bg-gray-100 rounded font-medium text-gray-700">{recommendation.profileSnippet.preferredFit} Fit</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Similar Customers */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-gray-900 flex items-center">
-                  <Users className="w-4 h-4 mr-2 text-blue-600" /> People Similar To You
-                </h3>
-                <div className="grid grid-cols-2 gap-3 mb-2">
-                  <div className="bg-white border border-gray-200 p-3 rounded-lg text-center shadow-sm">
-                    <div className="text-xs text-gray-500 font-bold mb-1">Height</div>
-                    <div className="text-sm font-bold text-gray-900">{recommendation.profileSnippet.height} cm</div>
-                  </div>
-                  <div className="bg-white border border-gray-200 p-3 rounded-lg text-center shadow-sm">
-                    <div className="text-xs text-gray-500 font-bold mb-1">Weight</div>
-                    <div className="text-sm font-bold text-gray-900">{recommendation.profileSnippet.weight} kg</div>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Most Purchased Size:</span>
-                  <span className="font-bold text-gray-900">{recommendation.recommendedSize}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Successful Purchase Rate:</span>
-                  <span className="font-bold text-green-600">{recommendation.similarCustomerSuccess}%</span>
-                </div>
-              </div>
-
-              {/* Return Risk */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-900 flex items-center">
-                  {recommendation.returnRisk === 'Low' && <ShieldCheck className="w-4 h-4 mr-2 text-green-600" />}
-                  {recommendation.returnRisk === 'Medium' && <AlertTriangle className="w-4 h-4 mr-2 text-yellow-600" />}
-                  {recommendation.returnRisk === 'High' && <AlertCircle className="w-4 h-4 mr-2 text-red-600" />}
-                  Return Risk: {recommendation.returnRisk}
-                </h3>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {recommendation.returnRisk !== 'Low' 
-                    ? "Based on your purchase history and this product's fit trends, returning an alternative size is higher risk. Selecting our recommended size reduces this risk." 
-                    : "You have a high success rate with this fit profile. We expect a great fit!"}
-                </p>
-              </div>
-
-              {/* Sustainability */}
-              <div className="bg-gradient-to-br from-[#007185]/10 to-transparent border border-[#007185]/20 rounded-xl p-4 space-y-3">
-                <h3 className="text-sm font-bold text-[#007185] flex items-center">
-                  <Leaf className="w-4 h-4 mr-2" /> Sustainability Impact
-                </h3>
-                <p className="text-xs text-gray-700 font-medium">By selecting the correct size, you prevent unnecessary return shipments.</p>
-                <div className="bg-white/80 rounded p-3 flex justify-between items-center shadow-sm">
-                  <span className="text-sm font-bold text-gray-700">Estimated CO₂ Saved:</span>
-                  <span className="text-lg font-black text-[#007185]">
-                    <Counter from={0} to={recommendation.co2Saved} duration={2} format={v => `${v}kg`} />
-                  </span>
-                </div>
-              </div>
-
-              {/* Fit Profile Update */}
-              <div className="pt-6 border-t border-gray-100 flex justify-center">
-                <button 
-                  onClick={() => {
-                    onClose();
-                    navigate('/profile/fit-profile');
-                  }}
-                  className="flex items-center text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors"
-                >
-                  <Ruler className="w-4 h-4 mr-2" /> Update Fit Profile
-                </button>
-              </div>
-
+            <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-none px-4 py-3 flex items-center space-x-2 shadow-sm">
+              <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-gray-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
-
-export default function AIPurchaseAssistant({ productId, brand, category }) {
-  const [recommendation, setRecommendation] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  useEffect(() => {
-    const fetchRec = async () => {
-      try {
-        const data = await getAIRecommendation(productId, brand, category);
-        setRecommendation(data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (category === 'Shoes' || category === 'Clothing' || category === 'Fashion') {
-      fetchRec();
-    } else {
-      setLoading(false);
-    }
-  }, [productId, brand, category]);
-
-  if (category !== 'Shoes' && category !== 'Clothing' && category !== 'Fashion') {
-    return null; 
-  }
-
-  if (loading) {
-    return (
-      <div className="w-full h-24 my-4 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-[#14b8a6] animate-spin" />
+        )}
+        <div ref={messagesEndRef} />
       </div>
-    );
-  }
 
-  if (!recommendation) return null;
-
-  const getRiskColor = (risk) => {
-    if (risk === 'Low') return 'bg-green-100 text-green-700 border-green-200';
-    if (risk === 'Medium') return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-    return 'bg-red-100 text-red-700 border-red-200';
-  };
-
-  return (
-    <>
-      <motion.div 
-        whileHover={{ y: -2, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-        className="w-full my-4 bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all"
-      >
-        <div className="flex items-center mb-3">
-          <Sparkles className="w-4 h-4 text-[#14b8a6] mr-2" />
-          <h2 className="text-sm font-bold text-gray-900">AI Purchase Assistant</h2>
+      {/* Error Toast */}
+      {error && messages.length > 0 && (
+        <div className="bg-red-50 border-t border-red-100 p-2 px-4 flex items-center text-red-600 text-xs font-medium">
+          <AlertCircle className="w-4 h-4 mr-2 shrink-0" />
+          {error}
         </div>
-        
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className="px-2.5 py-1 bg-gray-100 text-gray-800 text-xs font-bold rounded-full border border-gray-200">
-            {recommendation.recommendedSize}
-          </span>
-          <span className="px-2.5 py-1 bg-[#14b8a6]/10 text-[#0d9488] text-xs font-bold rounded-full border border-[#14b8a6]/20">
-            {recommendation.confidence}% Match
-          </span>
-          <span className={`px-2.5 py-1 text-xs font-bold rounded-full border ${getRiskColor(recommendation.returnRisk)}`}>
-            {recommendation.returnRisk} Risk
-          </span>
-        </div>
+      )}
 
-        <ul className="space-y-1.5 mb-4 text-xs text-gray-600 font-medium">
-          <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 mr-2 text-gray-400" /> Based on your purchase history</li>
-          <li className="flex items-center"><CheckCircle2 className="w-3.5 h-3.5 mr-2 text-gray-400" /> Similar customer profiles</li>
-        </ul>
-
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="text-xs font-bold text-[#007185] hover:text-[#C7511F] hover:underline flex items-center transition-colors"
+      {/* Input Area */}
+      <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-200 flex items-center space-x-2">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          placeholder="Ask about this product..."
+          className="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-full focus:ring-[#007185] focus:border-[#007185] block px-4 py-2.5 outline-none"
+          disabled={isAnalyzing || isTyping}
+        />
+        <button
+          type="submit"
+          disabled={!inputValue.trim() || isAnalyzing || isTyping}
+          className="bg-[#007185] hover:bg-[#005a6a] disabled:opacity-50 disabled:hover:bg-[#007185] text-white p-2.5 rounded-full transition-colors flex items-center justify-center"
         >
-          View Detailed Analysis <ChevronRight className="w-3 h-3 ml-0.5" />
+          <Send className="w-4 h-4 ml-0.5 mb-0.5" />
         </button>
-      </motion.div>
-
-      <DetailedAnalysisModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        recommendation={recommendation} 
-      />
-    </>
+      </form>
+    </div>
   );
 }

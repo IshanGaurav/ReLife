@@ -164,11 +164,7 @@ export default function AmazonProductDetails() {
           <CrossMarketRecommendation recommendationData={alternative} />
 
           {/* AI Purchase Assistant Widget */}
-          <AIPurchaseAssistant 
-            productId={product.id} 
-            brand={product.brand || product.specs?.Brand} 
-            category={product.category || 'Electronics'} 
-          />
+          <AIPurchaseAssistant product={product} />
 
           {/* Specs Table */}
           <div className="mb-6 mt-4">
