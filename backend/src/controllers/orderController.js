@@ -6,6 +6,7 @@ import { Notification } from '../models/Notification.js';
 import { ProductPassport } from '../models/ProductPassport.js';
 
 export const checkout = async (req, res) => {
+  const lockedRelifeProducts = [];
   try {
     const { cartItems, shippingData, paymentMethod } = req.body;
     console.log('Incoming order:', req.body);
@@ -22,10 +23,32 @@ export const checkout = async (req, res) => {
 
     const orderItems = [];
 
+    // 1. ATOMIC LOCKING PHASE
     for (const item of cartItems) {
-      // Find the product to verify and calculate impact
       const isRelife = item.productType === 'relife' || item.productType === 'RelifeProduct';
-      
+      if (isRelife) {
+        const pId = item.productId || item._id;
+        const filter = { status: 'ACTIVE' };
+        if (String(pId).match(/^[0-9a-fA-F]{24}$/)) filter._id = pId;
+        else filter.originalId = pId;
+
+        // Atomically lock the product
+        const lockedProduct = await RelifeProduct.findOneAndUpdate(
+          filter,
+          { $set: { status: 'SOLD', soldAt: new Date(), buyerId: req.user._id } },
+          { new: true }
+        );
+
+        if (!lockedProduct) {
+          throw new Error(`PRODUCT_ALREADY_SOLD:${item.name || 'Unknown Product'}`);
+        }
+        lockedRelifeProducts.push(lockedProduct);
+      }
+    }
+
+    // 2. DATA AGGREGATION PHASE
+    for (const item of cartItems) {
+      const isRelife = item.productType === 'relife' || item.productType === 'RelifeProduct';
       const priceStr = item.relifePrice || item.price || '0';
       const price = parseFloat(priceStr.toString().replace(/,/g, ''));
       totalAmount += (price * (item.quantity || 1));
@@ -37,44 +60,20 @@ export const checkout = async (req, res) => {
 
       if (isRelife) {
         const pId = item.productId || item._id;
-        if (String(pId).match(/^[0-9a-fA-F]{24}$/)) {
-          dbProduct = await RelifeProduct.findById(pId);
-        } else {
-          dbProduct = await RelifeProduct.findOne({ originalId: pId });
-        }
+        dbProduct = lockedRelifeProducts.find(p => p._id.toString() === pId.toString() || p.originalId === pId);
         
-        if (dbProduct && dbProduct.status === 'SOLD') {
-          return res.status(400).json({ message: `Sorry, ${dbProduct.name} has already been sold.` });
-        }
-        
-        // Mathematical formula: 1 credit per ₹100
         creditsEarned = Math.floor(price / 100) * (item.quantity || 1);
         totalGreenCredits += creditsEarned;
-        
         totalItemsReused += (item.quantity || 1);
         
-        if (dbProduct) {
-          // Parse co2Saved string (e.g., "220 kg")
-          if (dbProduct.co2Saved) {
-            const co2 = parseFloat(dbProduct.co2Saved.replace(/[^\d.-]/g, ''));
-            if (!isNaN(co2)) {
-              itemCo2Saved = co2;
-              totalCo2Saved += co2 * (item.quantity || 1);
-            }
-          } else {
-             // Fallback assumption: 45kg per item
-             itemCo2Saved = 45;
-             totalCo2Saved += 45 * (item.quantity || 1);
-          }
-          conditionScore = dbProduct.conditionScore || null;
+        if (dbProduct.co2Saved) {
+          const co2 = parseFloat(dbProduct.co2Saved.replace(/[^\d.-]/g, ''));
+          itemCo2Saved = !isNaN(co2) ? co2 : 45;
         } else {
-          // Fallback if db product is missing
           itemCo2Saved = 45;
-          totalCo2Saved += 45 * (item.quantity || 1);
-          conditionScore = 90;
         }
-        
-        // Rule: 2.5kg waste diverted per item
+        totalCo2Saved += itemCo2Saved * (item.quantity || 1);
+        conditionScore = dbProduct.conditionScore || 90;
         totalWasteDiverted += 2.5 * (item.quantity || 1);
       }
 
@@ -92,7 +91,7 @@ export const checkout = async (req, res) => {
       });
     }
 
-    // Create the Order
+    // 3. ORDER CREATION PHASE
     const order = await Order.create({
       userId: req.user._id,
       items: orderItems,
@@ -104,7 +103,7 @@ export const checkout = async (req, res) => {
       shippingAddress: shippingData ? `${shippingData.address}, ${shippingData.city}, ${shippingData.state} ${shippingData.pin}` : 'Default Address'
     });
 
-    // Create Ledger Entries per ReLife Item and handle SOLD state
+    // 4. LEDGER, PASSPORT, NOTIFICATIONS
     for (const item of orderItems) {
       if (item.productType === 'RelifeProduct' || item.productType === 'relife') {
         if (item.greenCredits > 0) {
@@ -119,26 +118,12 @@ export const checkout = async (req, res) => {
           });
         }
         
-        // Mark the RelifeProduct as SOLD
-        let dbProductToUpdate = null;
-        if (String(item.productId).match(/^[0-9a-fA-F]{24}$/)) {
-          dbProductToUpdate = await RelifeProduct.findById(item.productId);
-        } else {
-          dbProductToUpdate = await RelifeProduct.findOne({ originalId: item.productId });
-        }
+        const dbProductToUpdate = lockedRelifeProducts.find(p => p._id.toString() === item.productId.toString() || p.originalId === item.productId);
         
         if (dbProductToUpdate) {
-          console.log(`[Order Controller] Before Purchase: Product ${dbProductToUpdate.name} status = ${dbProductToUpdate.status}`);
-          
-          dbProductToUpdate.status = 'SOLD';
-          dbProductToUpdate.soldAt = new Date();
-          dbProductToUpdate.buyerId = req.user._id;
           dbProductToUpdate.transactionId = order._id;
           await dbProductToUpdate.save();
           
-          console.log(`[Order Controller] After Purchase: Product ${dbProductToUpdate.name} status = ${dbProductToUpdate.status}`);
-
-          // Transfer Product Passport Ownership
           const passport = await ProductPassport.findOne({ productId: dbProductToUpdate._id });
           if (passport) {
             passport.ownershipHistory.push({
@@ -149,14 +134,11 @@ export const checkout = async (req, res) => {
             await passport.save();
           }
 
-          // Update Seller
           if (dbProductToUpdate.listingOwnerId) {
             const seller = await User.findById(dbProductToUpdate.listingOwnerId);
             if (seller) {
               seller.soldCount = (seller.soldCount || 0) + 1;
               await seller.save();
-
-              // Create Notification
               await Notification.create({
                 userId: seller._id,
                 title: 'Product Sold',
@@ -166,9 +148,8 @@ export const checkout = async (req, res) => {
               });
             }
           }
-        }  
-          // If it was a resell item, update the source order item's resaleStatus
-          if (dbProductToUpdate && dbProductToUpdate.sourceOrderId && dbProductToUpdate.sourceItemId) {
+
+          if (dbProductToUpdate.sourceOrderId && dbProductToUpdate.sourceItemId) {
             const sourceOrder = await Order.findById(dbProductToUpdate.sourceOrderId);
             if (sourceOrder) {
               const sourceItem = sourceOrder.items.id(dbProductToUpdate.sourceItemId) || sourceOrder.items.find(i => i._id.toString() === dbProductToUpdate.sourceItemId.toString());
@@ -179,9 +160,10 @@ export const checkout = async (req, res) => {
             }
           }
         }
+      }
     }
 
-    // Update User Profile with new metrics
+    // 5. UPDATE BUYER METRICS
     const user = await User.findById(req.user._id);
     let previousBalance = 0;
     if (user) {
@@ -220,6 +202,25 @@ export const checkout = async (req, res) => {
     });
 
   } catch (error) {
+    // 6. ROLLBACK LOGIC
+    if (lockedRelifeProducts.length > 0) {
+      try {
+        for (const lockedItem of lockedRelifeProducts) {
+          await RelifeProduct.findByIdAndUpdate(lockedItem._id, {
+            $set: { status: 'ACTIVE' },
+            $unset: { soldAt: "", buyerId: "", transactionId: "" }
+          });
+        }
+      } catch (rollbackError) {
+        console.error('CRITICAL ROLLBACK FAILURE:', rollbackError);
+      }
+    }
+    
+    if (error.message.startsWith('PRODUCT_ALREADY_SOLD:')) {
+      const productName = error.message.split(':')[1];
+      return res.status(400).json({ message: `Sorry, ${productName} is no longer available.` });
+    }
+
     console.error('CHECKOUT ERROR:', error);
     res.status(500).json({ message: 'Order processing failed', error: error.message });
   }

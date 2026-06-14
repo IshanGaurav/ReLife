@@ -76,7 +76,12 @@ export default function Checkout() {
       setStep(4);
     } catch (error) {
       console.error('Order failed:', error);
-      alert(`Failed to place order: ${error.response?.data?.message || error.message}`);
+      const errorMsg = error.response?.data?.message || error.message;
+      alert(`Failed to place order: ${errorMsg}`);
+      
+      if (errorMsg.includes('no longer available')) {
+        navigate('/cart');
+      }
     } finally {
       setIsProcessing(false);
     }
