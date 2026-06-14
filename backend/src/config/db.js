@@ -22,11 +22,11 @@ export const connectDB = async () => {
 
     await mongoose.connect(dbUri);
     console.log(`MongoDB Connected: ${mongoose.connection.host}`);
-    
+
     // Auto-seed if using in-memory so the frontend always has data
     if (isMemory) {
-       console.log('Auto-seeding in-memory database...');
-       await runSeed();
+      console.log('Auto-seeding in-memory database...');
+      await runSeed();
     }
   } catch (error) {
     console.error(`Error connecting to MongoDB: ${error.message}`);
