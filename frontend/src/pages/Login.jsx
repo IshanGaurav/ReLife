@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Leaf, ShoppingCart, BarChart, Loader2 } from 'lucide-react';
@@ -7,10 +7,14 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [role, setRole] = useState('user'); 
+  const [role, setRole] = useState(localStorage.getItem('auth_selected_role') || 'user'); 
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    localStorage.setItem('auth_selected_role', role);
+  }, [role]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,7 +32,7 @@ export default function Login() {
     
     if (res.success) {
       if (res.role === 'seller') {
-        navigate('/seller/dashboard');
+        navigate('/seller');
       } else {
         navigate('/');
       }

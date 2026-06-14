@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Leaf, ShoppingCart, BarChart, Loader2 } from 'lucide-react';
@@ -8,11 +8,20 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('customer');
+  
+  // Use user if customer was selected in Login, to keep it consistent
+  const storedRole = localStorage.getItem('auth_selected_role');
+  const initialRole = storedRole === 'user' ? 'customer' : (storedRole || 'customer');
+  const [role, setRole] = useState(initialRole);
+  
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    localStorage.setItem('auth_selected_role', role === 'customer' ? 'user' : role);
+  }, [role]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,7 +55,7 @@ export default function Signup() {
 
     if (res.success) {
       if (res.role === 'seller') {
-        navigate('/seller/dashboard');
+        navigate('/seller');
       } else {
         navigate('/');
       }

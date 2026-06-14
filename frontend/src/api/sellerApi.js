@@ -1,3 +1,5 @@
+import api from './client';
+
 // Mock API service for Amazon Seller Copilot
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -52,23 +54,15 @@ export const getSellerProducts = async () => {
 };
 
 export const analyzeSEO = async (data) => {
-  await delay(1500);
-  return {
-    seoScore: Math.floor(Math.random() * 30) + 60, // Random score between 60-90
-    missingKeywords: ['wireless bluetooth 5.0', 'noise isolation', 'over ear headphones'],
-    keywordDensity: [
-      { keyword: 'headphones', density: '3.2%' },
-      { keyword: 'wireless', density: '2.1%' },
-      { keyword: 'cancelling', density: '1.5%' }
-    ],
-    suggestedTitle: data.title ? `Premium ${data.title} with Active Noise Cancellation` : 'Optimized Product Title',
-    suggestedBulletPoints: [
-      'INDUSTRY LEADING NOISE CANCELLATION: Block out unwanted background noise.',
-      '40-HOUR BATTERY LIFE: Fast charging capabilities.',
-      'PREMIUM COMFORT: Ergonomic design for all-day wear.'
-    ],
-    suggestedDescription: 'Experience unparalleled sound quality with our latest generation wireless headphones...'
-  };
+  try {
+    const response = await api.post('/v2/seller/seo-analyze', data);
+    return response.data;
+  } catch (error) {
+    if (error.response && error.response.data) {
+      throw new Error(error.response.data.message || 'Failed to analyze SEO');
+    }
+    throw new Error('SEO Analysis service is temporarily unavailable. Please try again.');
+  }
 };
 
 export const getReviewIntelligence = async (productId) => {

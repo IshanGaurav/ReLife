@@ -2,8 +2,8 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 import { Seller } from '../models/Seller.js';
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'secret_fallback', {
+const generateToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET || 'secret_fallback', {
     expiresIn: '30d',
   });
 };
@@ -56,7 +56,7 @@ export const registerUser = async (req, res) => {
       delete userData.passwordHash;
       res.status(201).json({
         ...userData,
-        token: generateToken(user._id),
+        token: generateToken(user._id, user.role),
       });
     } else {
       console.error('AUTH FAILURE: Invalid user data returned after creation');
@@ -113,7 +113,7 @@ export const loginUser = async (req, res) => {
       delete userData.passwordHash;
       res.json({
         ...userData,
-        token: generateToken(user._id),
+        token: generateToken(user._id, user.role),
       });
     } else {
       console.log('AUTH FAILURE: Incorrect password');

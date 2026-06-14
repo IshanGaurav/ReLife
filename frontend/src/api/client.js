@@ -155,3 +155,5 @@ export const deleteRelifeListingApi = async (id) => {
   }
 };
 
+export default api;
+

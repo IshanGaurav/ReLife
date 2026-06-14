@@ -1,7 +1,9 @@
 import React from 'react';
 import { User, Bell, Shield, Key, Moon } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function SellerSettings() {
+  const { user } = useAuth();
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
@@ -40,7 +42,7 @@ export default function SellerSettings() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Brand Name</label>
-                  <input type="text" defaultValue="Acme Brands" className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#14b8a6]/50 focus:border-[#14b8a6] outline-none" />
+                  <input type="text" defaultValue={user?.businessName || user?.name || ''} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#14b8a6]/50 focus:border-[#14b8a6] outline-none" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Seller ID</label>
@@ -50,7 +52,7 @@ export default function SellerSettings() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                <input type="email" defaultValue="hello@acmebrands.com" className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#14b8a6]/50 focus:border-[#14b8a6] outline-none" />
+                <input type="email" defaultValue={user?.email || ''} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#14b8a6]/50 focus:border-[#14b8a6] outline-none" />
               </div>
 
               <div className="pt-4 border-t border-gray-100 flex justify-end">

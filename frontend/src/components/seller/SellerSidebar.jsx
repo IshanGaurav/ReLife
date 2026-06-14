@@ -14,8 +14,10 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 
 export default function SellerSidebar() {
+  const { user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -80,11 +82,11 @@ export default function SellerSidebar() {
       {/* User Area */}
       <div className="p-4 border-t border-gray-800 flex items-center">
         <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#14b8a6] to-teal-600 flex items-center justify-center font-bold text-white flex-shrink-0">
-          A
+          {user?.name?.charAt(0)?.toUpperCase() || 'S'}
         </div>
         <div className={`ml-3 overflow-hidden transition-all duration-300 ${collapsed ? 'hidden' : 'block'}`}>
-          <p className="text-sm font-medium text-white truncate">Acme Brands</p>
-          <p className="text-xs text-gray-400 truncate">Pro Seller</p>
+          <p className="text-sm font-medium text-white truncate">{user?.businessName || user?.name || 'Seller'}</p>
+          <p className="text-xs text-gray-400 truncate capitalize">{user?.role || 'Seller'}</p>
         </div>
       </div>
     </div>

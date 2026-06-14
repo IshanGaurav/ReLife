@@ -11,6 +11,7 @@ import {
   deleteRelifeListing
 } from '../controllers/productController.js';
 import { getSellerDashboard } from '../controllers/sellerController.js';
+import { analyzeSellerSEO } from '../controllers/seoController.js';
 import { checkout, getMyOrders } from '../controllers/orderController.js';
 import { getLeaderboard } from '../controllers/leaderboardController.js';
 import { getSustainabilityData, submitCircularAction, inspectImageWithAI } from '../controllers/sustainabilityController.js';
@@ -44,6 +45,7 @@ router.get('/search', searchAllProducts);
 
 // Seller Dashboard
 router.get('/seller/dashboard/:sellerId', getSellerDashboard);
+router.post('/seller/seo-analyze', protect, analyzeSellerSEO);
 
 // Orders & Sustainability
 router.post('/orders/checkout', protect, checkout);

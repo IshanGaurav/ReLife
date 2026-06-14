@@ -7,17 +7,22 @@ export default function SellerSEO() {
   const [formData, setFormData] = useState({ title: '', description: '', features: '' });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState(null);
+  const [error, setError] = useState(null);
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!formData.title && !formData.description) return;
     
     setIsAnalyzing(true);
+    setError(null);
     try {
       const data = await analyzeSEO(formData);
+      console.log("SEO Analyzer Response:", data);
       setResults(data);
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Frontend SEO Error:", err);
+      setError(err.response?.data?.message || err.message || 'SEO Analysis service is temporarily unavailable. Please try again.');
+      setResults(null);
     } finally {
       setIsAnalyzing(false);
     }
@@ -26,11 +31,14 @@ export default function SellerSEO() {
   // Circular gauge calculation
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = results ? circumference - (results.seoScore / 100) * circumference : circumference;
+  
+  const safeSeoScore = results?.seoScore ? Number(results.seoScore) : 0;
+  const strokeDashoffset = results ? circumference - (safeSeoScore / 100) * circumference : circumference;
 
   const getScoreColor = (score) => {
-    if (score >= 80) return '#10b981'; // Green
-    if (score >= 60) return '#f59e0b'; // Yellow
+    const numScore = Number(score) || 0;
+    if (numScore >= 80) return '#10b981'; // Green
+    if (numScore >= 60) return '#f59e0b'; // Yellow
     return '#ef4444'; // Red
   };
 
@@ -87,10 +95,16 @@ export default function SellerSEO() {
               {isAnalyzing ? (
                 <><RefreshCw className="w-5 h-5 mr-2 animate-spin" /> Analyzing Listing...</>
               ) : (
-                <><Sparkles className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" /> Analyze SEO</>
+                <><Sparkles className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" /> Analyze Listing</>
               )}
             </button>
           </form>
+          {error && (
+            <div className="mt-4 p-4 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100 flex items-start">
+              <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
         </div>
 
         {/* Results */}
@@ -127,34 +141,45 @@ export default function SellerSEO() {
                       <circle cx="64" cy="64" r={radius} stroke="#f3f4f6" strokeWidth="12" fill="none" />
                       <motion.circle 
                         cx="64" cy="64" r={radius} 
-                        stroke={getScoreColor(results.seoScore)} 
+                        stroke={getScoreColor(safeSeoScore)} 
                         strokeWidth="12" fill="none" 
                         strokeDasharray={circumference}
                         initial={{ strokeDashoffset: circumference }}
-                        animate={{ strokeDashoffset }}
+                        animate={{ strokeDashoffset: isNaN(strokeDashoffset) ? circumference : strokeDashoffset }}
                         transition={{ duration: 1.5, ease: "easeOut" }}
                         strokeLinecap="round"
                       />
                     </svg>
                     <div className="absolute flex flex-col items-center">
-                      <span className="text-3xl font-black text-gray-900 leading-none">{results.seoScore}</span>
-                      <span className="text-xs font-bold text-gray-400">/ 100</span>
+                      <span className="text-3xl font-black text-gray-900 leading-none">{safeSeoScore}</span>
+                      <span className="text-xs font-bold text-gray-400">SEO</span>
                     </div>
                   </div>
                 </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Trust Score</p>
+                    <p className="text-2xl font-black text-gray-900">{results.trustScore}<span className="text-sm font-normal text-gray-500">/100</span></p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Return Risk</p>
+                    <p className={`text-xl font-black ${results.returnRisk === 'High' ? 'text-red-600' : results.returnRisk === 'Medium' ? 'text-yellow-600' : 'text-green-600'}`}>{results.returnRisk}</p>
+                  </div>
+                </div>
 
-                {/* Missing Keywords */}
+                {/* Missing Information */}
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
                     <AlertCircle className="w-4 h-4 mr-2 text-red-500" />
-                    Missing High-Volume Keywords
+                    Missing Information
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {results.missingKeywords.map(kw => (
+                    {Array.isArray(results.missingInformation) ? results.missingInformation.map(kw => (
                       <span key={kw} className="px-3 py-1 bg-red-50 text-red-700 text-xs font-bold rounded-full border border-red-100">
                         + {kw}
                       </span>
-                    ))}
+                    )) : null}
                   </div>
                 </div>
 
@@ -162,20 +187,26 @@ export default function SellerSEO() {
                 <div className="space-y-4">
                   <div className="bg-teal-50 p-4 rounded-lg border border-teal-100 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
-                    <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider mb-2">Suggested Title</h3>
-                    <p className="text-sm text-teal-900 font-medium">{results.suggestedTitle}</p>
+                    <h3 className="text-xs font-bold text-teal-800 uppercase tracking-wider mb-2">Optimized Title</h3>
+                    <p className="text-sm text-teal-900 font-medium">{results.optimizedTitle}</p>
                   </div>
 
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                    <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Suggested Bullet Points</h3>
-                    <ul className="text-sm text-blue-900 font-medium space-y-2">
-                      {results.suggestedBulletPoints.map((bp, i) => (
+                    <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">Optimized Description</h3>
+                    <p className="text-sm text-blue-900 font-medium">{results.optimizedDescription}</p>
+                  </div>
+
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+                    <h3 className="text-xs font-bold text-purple-800 uppercase tracking-wider mb-2">Suggestions</h3>
+                    <ul className="text-sm text-purple-900 font-medium space-y-2">
+                      {Array.isArray(results.suggestions) ? results.suggestions.map((bp, i) => (
                         <li key={i} className="flex items-start">
-                          <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 text-blue-500 flex-shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 mr-2 mt-0.5 text-purple-500 flex-shrink-0" />
                           <span>{bp}</span>
                         </li>
-                      ))}
+                      )) : null}
                     </ul>
                   </div>
                 </div>
