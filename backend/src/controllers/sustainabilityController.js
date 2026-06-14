@@ -244,10 +244,14 @@ export const submitCircularAction = async (req, res) => {
     // Save action LAST to guarantee atomicity and prevent "already processed" stuck state
     await newAction.save();
 
+    const userData = user.toObject();
+    delete userData.passwordHash;
+
     res.status(200).json({
       success: true,
       message: `${actionType} action successfully recorded!`,
-      creditsEarned
+      creditsEarned,
+      user: userData
     });
 
   } catch (error) {

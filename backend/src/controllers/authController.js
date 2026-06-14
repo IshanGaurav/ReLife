@@ -52,11 +52,10 @@ export const registerUser = async (req, res) => {
 
     if (user) {
       console.log('AUTH SUCCESS: Registered', email);
+      const userData = user.toObject();
+      delete userData.passwordHash;
       res.status(201).json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        ...userData,
         token: generateToken(user._id),
       });
     } else {
@@ -110,11 +109,10 @@ export const loginUser = async (req, res) => {
 
     if (await user.matchPassword(password)) {
       console.log('AUTH SUCCESS: Logged in', email);
+      const userData = user.toObject();
+      delete userData.passwordHash;
       res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        ...userData,
         token: generateToken(user._id),
       });
     } else {

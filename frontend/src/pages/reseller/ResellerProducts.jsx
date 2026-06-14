@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { UploadCloud, CheckCircle, ArrowRight, Camera, FileText, Settings, X, ShieldCheck, ShoppingBag, Info, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getMyOrdersApi, submitCircularActionApi, uploadImagesApi } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ResellerProducts() {
+  const { updateUser } = useAuth();
   const [step, setStep] = useState(1);
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -181,6 +183,7 @@ export default function ResellerProducts() {
         sellerImages
       };
       const response = await submitCircularActionApi(payload);
+      if (response.user) updateUser(response.user);
       setSuccessAction({ type: actionType, credits: response.creditsEarned });
       setStep(4);
     } catch (error) {
