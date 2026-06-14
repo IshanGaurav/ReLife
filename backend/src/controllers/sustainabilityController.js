@@ -3,6 +3,7 @@ import { GreenCreditTransaction } from '../models/GreenCreditTransaction.js';
 import { CircularAction } from '../models/CircularAction.js';
 import { RelifeProduct } from '../models/RelifeProduct.js';
 import { User } from '../models/User.js';
+import { inspectImage } from '../services/bedrockService.js';
 
 export const getSustainabilityData = async (req, res) => {
   try {
@@ -273,23 +274,9 @@ export const inspectImageWithAI = async (req, res) => {
       return res.status(400).json({ message: 'No image provided for AI inspection.' });
     }
 
-    const formData = new FormData();
-    const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
-    formData.append('file', blob, req.file.originalname);
-
     let aiResponseData;
     try {
-      const response = await fetch('http://localhost:8000/predict', {
-        method: 'POST',
-        body: formData,
-        signal: AbortSignal.timeout(10000)
-      });
-      
-      if (!response.ok) {
-        throw new Error(`AI service responded with status ${response.status}`);
-      }
-      
-      aiResponseData = await response.json();
+      aiResponseData = await inspectImage(req.file.buffer, req.file.mimetype);
     } catch (aiError) {
       console.error('AI Service Error:', aiError.message);
       return res.status(503).json({ 

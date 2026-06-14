@@ -182,3 +182,63 @@ Be conversational, concise, and helpful.`;
     throw new Error(`Bedrock Chat Failed: ${error.message}`);
   }
 };
+
+export const inspectImage = async (imageBuffer, mimeType) => {
+  try {
+    const base64Image = imageBuffer.toString('base64');
+    const format = mimeType.split('/')[1] || 'jpeg'; // default to jpeg
+    
+    const prompt = `You are an AI Product Condition Inspector for a marketplace.
+Analyze this image of a product and estimate its physical damage percentage (0 to 100, where 0 is flawless and 100 is completely destroyed). Also provide a confidence score between 0.0 and 1.0.
+
+Format the response strictly as valid JSON like this:
+{ "confidence": 0.92, "damage_percentage": 15 }`;
+
+    const payload = {
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              image: {
+                format: format === 'jpg' ? 'jpeg' : format,
+                source: {
+                  bytes: base64Image
+                }
+              }
+            },
+            { text: prompt }
+          ]
+        }
+      ],
+      inferenceConfig: { maxTokens: 300, temperature: 0.1 }
+    };
+
+    const command = new InvokeModelCommand({
+      modelId: 'amazon.nova-lite-v1:0',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify(payload),
+    });
+
+    console.log(`[Bedrock Service] Sending inspectImage request...`);
+    const client = getBedrockClient();
+    const response = await client.send(command);
+    
+    const decodedBody = new TextDecoder().decode(response.body);
+    const result = JSON.parse(decodedBody);
+    const textOutput = result.output?.message?.content?.[0]?.text || "{}";
+    
+    const jsonMatch = textOutput.match(/```json\n([\s\S]*?)\n```/) || textOutput.match(/\{[\s\S]*\}/);
+    const jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : "{}";
+    
+    const parsed = JSON.parse(jsonString);
+    return {
+      confidence: parsed.confidence || 0.85,
+      damage_percentage: parsed.damage_percentage || 0
+    };
+  } catch (error) {
+    console.error('Failed to inspect image with Bedrock:', error);
+    throw new Error(`Bedrock Image Inspection Failed: ${error.message}`);
+  }
+};
