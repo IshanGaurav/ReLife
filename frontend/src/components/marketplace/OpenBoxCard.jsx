@@ -17,6 +17,29 @@ export default function OpenBoxCard({ product }) {
     navigate(`/relife/product/${productId}`);
   };
 
+  const getDiscountPercent = () => {
+    if (product.discountPercent) return product.discountPercent;
+    try {
+      const orig = parseFloat(String(product.originalPrice).replace(/,/g, ''));
+      const relife = parseFloat(String(product.relifePrice).replace(/,/g, ''));
+      if (orig && relife && orig > relife) {
+        return Math.round(((orig - relife) / orig) * 100);
+      }
+    } catch(e) {}
+    return 0;
+  };
+
+  const getConditionScore = () => {
+    if (product.conditionScore) return product.conditionScore;
+    if (product.availableUnits && product.availableUnits.length > 0) {
+      return Math.max(...product.availableUnits.map(u => u.conditionScore || 0));
+    }
+    return 0;
+  };
+
+  const discount = getDiscountPercent();
+  const score = getConditionScore();
+
   return (
     <div 
       className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col h-full"
@@ -32,9 +55,11 @@ export default function OpenBoxCard({ product }) {
       <div className="h-56 bg-gray-50 flex items-center justify-center p-6 relative">
         <img src={getImageUrl(product.coverImage || product.image)} alt={product.name} className="max-h-full object-contain group-hover:scale-105 transition-transform mix-blend-multiply" />
         {/* Discount Badge */}
-        <div className="absolute top-3 right-3 bg-[#CC0C39] text-white text-xs font-bold px-2 py-1 rounded-sm shadow-sm">
-          {product.discountPercent}% OFF
-        </div>
+        {discount > 0 && (
+          <div className="absolute top-3 right-3 bg-[#CC0C39] text-white text-xs font-bold px-2 py-1 rounded-sm shadow-sm">
+            {discount}% OFF
+          </div>
+        )}
       </div>
 
       <div className="p-4 flex flex-col flex-1">
@@ -42,11 +67,11 @@ export default function OpenBoxCard({ product }) {
 
         <div className="mt-3 flex items-center justify-between">
           <div className="flex-1 mr-2">
-            <ConditionScoreBadge score={product.conditionScore} />
+            <ConditionScoreBadge score={score} />
           </div>
           {product.aiVerified && (
             <div className="text-[10px] font-bold text-[#007185] flex items-center bg-white px-1.5 py-1 rounded border border-[#D5D9D9]">
-              <ShieldCheck className="w-3 h-3 mr-0.5" /> AI Verified ({product.healthScore || product.conditionScore}/100)
+              <ShieldCheck className="w-3 h-3 mr-0.5" /> AI Verified ({product.healthScore || score}/100)
             </div>
           )}
         </div>
