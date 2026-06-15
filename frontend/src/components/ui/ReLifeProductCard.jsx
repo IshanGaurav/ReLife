@@ -2,6 +2,7 @@ import React from 'react';
 import { Star, ShieldCheck, Leaf, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { getImageUrl } from '../../utils/imageUtils';
 
 export default function ReLifeProductCard({ product }) {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export default function ReLifeProductCard({ product }) {
       </div>
 
       <div className="h-48 bg-gray-50 flex items-center justify-center p-4 relative">
-        <img src={image} alt={name} className="max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
+        <img src={getImageUrl(image)} alt={name} className="max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform" />
         
         {/* Passport Icon overlay */}
         {passportAvailable && (
