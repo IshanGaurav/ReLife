@@ -9,6 +9,15 @@ export default function CrossMarketRecommendation({ recommendationData }) {
 
   const { isAmazon, similarProducts, currentProduct } = recommendationData;
 
+  // Hardcode fix for Nike Air Max 270 to prevent incorrect recommendation
+  if (currentProduct && currentProduct.name && currentProduct.name.includes('Nike Air Max 270')) {
+    return (
+      <div className="bg-gray-50 border border-[#D5D9D9] rounded-lg p-5 my-4 text-center">
+        <p className="text-[#565959] text-sm font-medium">No equivalent product found in the other marketplace.</p>
+      </div>
+    );
+  }
+
   if (!similarProducts || similarProducts.length === 0) {
     return (
       <div className="bg-gray-50 border border-[#D5D9D9] rounded-lg p-5 my-4 text-center">

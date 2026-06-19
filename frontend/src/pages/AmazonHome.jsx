@@ -57,7 +57,7 @@ export default function AmazonHome() {
             { title: 'Gaming accessories', img: 'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=500&auto=format&fit=crop' },
             { title: 'Refresh your space', img: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=500&auto=format&fit=crop' },
             { title: 'Electronics', img: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?q=80&w=500&auto=format&fit=crop' },
-            { title: 'Beauty picks', img: 'https://images.unsplash.com/photo-1596462502278-27bf85033e5a?q=80&w=500&auto=format&fit=crop' },
+            { title: 'Beauty picks', img: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?q=80&w=500&auto=format&fit=crop' },
           ].map((cat, i) => (
             <div key={i} className="bg-white p-5 rounded-md shadow-sm border border-gray-100 flex flex-col h-full cursor-pointer hover:shadow-md transition-shadow">
               <h2 className="text-xl font-bold text-amazon-blue mb-4">{cat.title}</h2>
